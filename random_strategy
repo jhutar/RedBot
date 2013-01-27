@@ -1,0 +1,8 @@
+case $(($((RANDOM))%3)) in
+  0)
+    echo 'L' ;;
+  1)
+    echo '-' ;;
+  2)
+    echo 'R' ;;
+esac

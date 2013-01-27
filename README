@@ -1,0 +1,11 @@
+(*) RedBot pravidla:
+	viz RedBot_pravidla.txt
+
+(*) Jak přeložit zdrojový kód serveru:
+	make
+
+(*) Typické spuštění serveru:
+	./redbot -f ${PWD}/playing_fields/city-plan_field.txt ${PWD}/random_strategy ${PWD}/random_strategy ${PWD}/random_strategy ${PWD}/random_strategy
+
+(*) Jak přehrát hru:
+	./replay_game.sh ${PWD}/playing_fields/city-plan_field.txt 0.3

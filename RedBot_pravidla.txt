@@ -1,0 +1,79 @@
+Základní pravidla:
+------------------
+Cílem je v libovolném programovacím jazyce implementovat strategii pro robota / červa. Červ se pohybuje na hracím plánu spolu se 3 soupeřícími červy. Na hracím plánu jsou rozmístěny zdi a bonusové předměty (kytičky, krystaly ledu a bonusy). Pokud červ vstoupí na pole s kytičkou, prodlouží se a získá body. Led pak znamená zmražení ostatních červů na několik následujících kol. Bonus zvyšuje efekt kytičky či ledu. Více bonusů za sebou má násobící efekt. Pokud červ vstoupí na políčko kde je zeď anebo jiný červ, umírá.
+Vítězí červ který získal po daném počtu kol nejvíc bodů.
+
+Podrobná pravidla:
+---------------
+1) Hrací plán je čtvercová síť. Čtvereček / políčko může být jedním z uvedených typů:
+	a. prázdné pole - nic zajímavého
+	b. stěna - pokud do ní narazí nějaký červ, pak ten umírá
+	c. segment červa - každý červ leží na několika vzájemně sousedních polích, začínajících červí hlavou (odkud se červ pohybuje dále dopředu) a končících ocasem (odkud se červ odsouvá pryč)
+	d. květina - snězením květiny červ získává vítězné body (více viz bonus)
+	e. led - snězením ledu budou ostatní červi po několik následujících kol zmraženi a nemohou se pohybovat, zároveň se všem červům zresetuje bonus
+	f. bonus - snězení bonusu násobí efekt snězení květiny a/nebo ledu. Snězení více bonusů za sebou (tak že mezi nimi červ nesnědl žádnou kytičku ani led) se sčítá. Snědl-li červ B bonusů "za sebou", pak:
+		- snězením kytičky červ získá 2^B vítězných bodů
+		- snězením ledu červ zmrazí ostatní červy na následujících (B+1)*5 kol
+2) Okrajová políčka každého hracího plánu jsou zdi.
+3) Hra je rozdělena na jednotlivá kola. V každém kole se každý žijící nezmrazený červ posune od své hlavy jedno políčko dále - buď kupředu ve směru původního pohybu, nebo nalevo či napravo, v závislosti na příkazu obdrženém od strategie/implmentace příslušného robota. Pohyby všech červů jsou vždy vyhodnoceny souběžně.
+4) Na začátku každé hry jsou 4 červi (každý o délce 2 políček) umístění ve vzájemně symetrických pozicích.
+5) V každém kole se provedou tyto kroky v tomto pořadí:
+	a. Server spustí implementace robotů - technické detaily jsou uvedeny níže.
+	b. Server počká 3 sekundy na odpovědi od robotů. Žádná anebo chybná odpověď je interpretována jako "jdi rovně".
+	c. Po uvedených 3 sekundách server všechny dosud běžící procesy robotů zabije.
+	d. Server vyhodnotí pohyby hlav červů a vyřeší případné nárazy červů do zdí či do jiných červů. Jakýkoliv červ narážející do zdi či do jiného červa ihned umírá. Pokud více červů se snaží posunout své hlavy na jedno políčko, všichni tito červi ihned umírají. Pozor na to, že hlavy se posouvají před možným posunem ocasů všech červů, tedy hlava červa může narazit do ocasu červa (který z daného políčka následně odleze). Smrt červa je penalizována ztrátou poloviny bodů (zaokrouhleno dolů).
+	e. Hlavy živých a nezmrazených červů jsou přesunuty.
+	f. Pokud červ v tomto kole snědl kytičku, potom:
+		- získá vítězné body dle výše svého aktuálního bonusu
+		- kytička zmizí z políčka
+		- červ se prodlouží o jedno políčko - jeho ocas se toto kolo neposune
+		- bonus červa se zresetuje na nulu
+	g. Pokud červ v tomto kole snědl ledový krystal, potom:
+		- led zmizí z políčka
+		- všichni ostatní červi budou zmrazeni na několik následujících kol - dle aktuální výše bonusu tohoto červa
+		- bonusy všech červů se na konci tohoto kola zresetují na nulu
+	h. O jedno políčko se odsunou ocasy všech červů kteří žijí, nebyli na začátku kola zmrazeni a v tomto kole nesnědli kytičku.
+	i. "Zmraženost" všech červů se aktualizuje. Tedy pokud červ byl zmražen na začátku kola, jeho "zmraženost" se sníží o jedna. A pokud nějaký jiný červ v tomto kole snědl led, "zmraženost" tohoto červa se příslušně zvýší.
+	j. Pokud nějaký červ snědl v tomto kole ledový krystal, potom bonusy všech červů se nyní zresetují na nulu.
+	k. Jakákoliv kytička, led či bonus snězené v tomto kole se objeví na náhodném místě hracího plánu.
+6) Těla mrtvých červů zůstávají na hracím plánu do konce hry.
+7) Pokud počet kytiček snězených od začátku hry dosáhne předem známé hranice, hra končí.
+8) Pokud počet odehraných kol dosáhne předem známé hranice, hra končí. Všechny hrací plány jsou konstruovány tak, že kytičky by měly být snězeny dříve než se odehraje daný počet kol.
+9) Na konci hry mají význam pouze získané body.
+
+Technická / implementační pravidla:
+-----------------------------------
+Cílem je naimplementovat program spustitelný na Linuxu (Fedora 16) v jakémkoliv "běžném" programovacím či skriptovacím jazyce. Odevzdávány budou zdrojové kódy, které se zkompilují až u organizátorů. V případě použití nestandardních knihoven či programovacích jazyků (nevyskytujících se ve standardní instalaci Fedory 16) prosím zkontaktujte s předstihem organizátory.
+
+Uvedený program bude spouštěn se dvěma argumenty. První z nich je název souboru se současným hracím plánem. Druhý je ID červa, jehož tento program má ovládat. ID je od 0 (první červ) do 3 (čtvrtý červ). Program by měl během 3 sekund napsat na standardní výstup právě jeden znak popisující pohyb červa v tomto kole. Uvedený znak má tento význam:
+a) 'l' nebo 'L': zahni hlavou červa doleva
+b) 'r' nebo 'R': zahni hlavou červa doprava
+c) '.': pokračuj rovně
+d) cokoliv jiného nebo žádná odpověď: pokračuj rovně
+
+Formát souboru s hracím plánem je textový soubor s řádky ukončenými znakem 'CR'. Soubor obsahuje:
+1) První řádek se třemi čísly: číslo současného kola, maximální počet kol na odehrání a počet zbývajících kytiček do konce hry
+2) Druhý řádek má dvě čísla: šířku a výšku hracího plánu
+3) Třetí až šestý řádek obsahuje informace týkající se prvního až čtvrtého červa. Každý řádek obsahuje tato čísla: pozici X (vodorovná osa) hlavy červa, pozici Y (svislá osa) hlavy červa, pozici X ocasu červa, pozici Y ocasu červa, počet kol které bude červ zamrznutý, červův současný bonus a počet vítězných bodů
+	a) Každá souřadnice na obou osách začíná nulou.
+	b) Souřadnice se poočítají zleva doprava a shora dolů. Tedy souřadnice levého horního rohu jsou [0,0] a pravého dolního rohu jsou [šířka-1,výška-1].
+	c) Červ je mrtvý právě tehdy když počet kol které bude červ zamrznutý je 999999999.
+4) Následujících (výška) řádků, každý obsahující (šířka) znaků (plus znak 'CR' na konci řádku), popisuje vlastní hrací pole. Každý znak popisuje právě jedno políčko plánu, kde:
+	a) ' ' je prázdné políčko
+	b) '.' je kytička
+	c) '*' je led
+	d) '+' je bonus
+	e) '#' je zeď
+	f) znaky 'a' až 'd' značí jeden segment prvního červa (červ s ID 0), kde jednotlivé znaky popisují směr pohybu červa od tohoto segmentu směrem k hlavě. Tedy písmeno na ocase červa bude znamenat směr k předposlednímu segmentu červa, zatímco písmeno na hlavě červa znamená směr kterým se červ pohybuje. Jednotlivé znaky značí směr:
+		- 'a' je směr "nahoru" (k nižší souřadnici Y)
+		- 'b' je směr "doprava" (k vyšší souřadnici X)
+		- 'c' je směr "dolů" (k vyšší souřadnici Y)
+		- 'd' je směr "doleva" (k nižší souřadnici X)
+	g) znaky 'h' až 'k' mají stejný význam jako znaky 'a' až 'd' ale pro druhého červa, znaky 'o' až 'r' mají stejný význam pro třetího červa a znaky 'w' až 'z' mají stejný význam pro čtvrtého červa.
+
+
+Upozornění:
+-----------
+1) Třísekundový časový limit je striktní a platný pro situaci, kdy běží čtyři implementace jednotlivých robotů/červů paralelně. Reálná efektivní doba výpočtu dalšího kroku je tedy čtvrtinová.
+2) Vyhodnocení bude probíhat na notebooku Lenovo T510, pro detailní HW profil napište na redbot@redhat.com
+3) Na notebooku bude nainstalován operační systém Fedora 16 v defaultní konfiguraci. Při použití jakékoliv nestandardní knihovny, skriptovacího či programovacího jazyka, zkonzultujte prosím s organizátory zda vaše implementace se přeloží bez problémů.
