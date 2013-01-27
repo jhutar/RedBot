@@ -27,312 +27,649 @@
 #include <cstdio>
 #include <string>
 #include <string.h>
+#include <cmath>
+#include <list>
+
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 
 using namespace std;
 
+struct attack_t {
+	unsigned attacker;
+	unsigned soldiers;
+};
+
+string get_relative_attack_list(list<attack_t> *attackers, unsigned me)
+{
+	string attack_list = "";
+	char aux_ch[2];
+	list<attack_t>::iterator it;
+	for (it = attackers->begin(); it != attackers->end(); it++) {
+		sprintf(aux_ch, "%d,", (4 + it->attacker - me) % 4);
+		attack_list += aux_ch;
+	}
+	attack_list.erase(attack_list.size()-1);
+	return attack_list;
+}
+
+
 PlayField::PlayField(const string _filename) : filename(_filename) {
-    field_loaded=false;
-    field=NULL;
-    FILE *fd;
-    fd = fopen(filename.c_str(),"r");
-    if (!fd) {
-	fprintf(stderr, "Can not access file with playing field: %s\n", filename.c_str());
-        return;
-    }
-    
-    /* read current round number, total rounds and remaining flowers until end of the game */
-    fscanf(fd,"%u %u %u\n", &current_round, &total_rounds, &remaining_flowers);
 
-    /* read width and height of the playing field, allocate field */
-    fscanf(fd,"%u %u\n", &width, &height);
-    field = new char [width*height+1]; // the "+1" is due to automatic \0 append in fgets
+	debug=false;
+	field_loaded=false;
+	int i;
+	FILE *fd;
 
-    /* read data about worms */
-    unsigned head_x, head_y, tail_x, tail_y;
-    dead_worms = 0;
-    for (int i = 0; i < NUM_PLAYERS; i++ ) {
-        fscanf(fd,"%u %u %u %u %u %u %i\n", &head_x, &head_y, &tail_x, &tail_y, &(worms[i].rounds_frozen), &(worms[i].bonus), &(worms[i].points));
-	worms[i].head_position=head_y*width+head_x;
-	worms[i].tail_position=tail_y*width+tail_x;
-	if (worms[i].rounds_frozen == FROZEN_WHEN_DIED)
-	    dead_worms++;
-    }
+	fd = fopen(filename.c_str(),"r");
+	if (!fd) {
+		fprintf(stderr, "Can not access file with starting situation: %s\n", filename.c_str());
+		return;
+	}
 
-    /* read playfiled itself */
-    for (unsigned y = 0; y < height; y++) {
-	fgets(field+y*width, width+1, fd); // the "+1" is due to automatic \0 append in fgets
-	fscanf(fd,"\n");
-    }
-    
-    fclose(fd);
-    field_loaded=true;
-    _game_finished=((current_round >= total_rounds) || (remaining_flowers <= 0) || (dead_worms == NUM_PLAYERS));
+	/* read current round number and total rounds */
+	fscanf(fd,"%u/%u:", &current_round, &total_rounds);
+
+	/* read data about kingdoms */
+	dead_kingdoms = 0;
+	for (i = 0; i < NUM_PLAYERS; i++ ) {
+		fscanf(fd," %u %u %u %u %u %u %u\n", &kingdom[i].land,
+			&kingdom[i].food, &kingdom[i].soldiers,
+			&kingdom[i].peasants, &kingdom[i].arms,
+			&kingdom[i].farming, &kingdom[i].secret_services);
+		if (kingdom[i].land == 0) {
+			dead_kingdoms++;
+		}
+	}
+
+	fclose(fd);
+
+	/* write snapshots of the game to file "filename + PLAY_SNAPSHOTS_FILE_SUFFIX" */
+	filename += PLAY_SNAPSHOTS_FILE_SUFFIX;
+	write_playfield_to_disk("w");
+
+	field_loaded=true;
+	_game_finished=((current_round >= total_rounds) ||
+		(dead_kingdoms == NUM_PLAYERS - 1));
 }
 
 
 PlayField::~PlayField() {
-    if (field) {
-	delete[] field;
-    }
 }
 
 
-void PlayField::write_playfield_to_disk(bool rewrite_original_file) {
-    string new_filename(filename);
-    if (!(rewrite_original_file)) {
-	char s[10], s2[10];
-	sprintf(s, ".%04d", current_round-1);
-	sprintf(s2, ".%04d", current_round);
-	if (new_filename.rfind(s) == new_filename.length()-strlen(s)) {
-	    new_filename.replace(new_filename.length()-strlen(s), strlen(s), "");
+void PlayField::write_playfield_to_disk(const char* mode)
+{
+	int i;
+	FILE *fd;
+
+	fd = fopen(filename.c_str(), mode);
+	if (!fd) {
+		fprintf(stderr, "Can not access file with starting situation: %s\n", filename.c_str());
+		return;
 	}
-	new_filename += s2;
-	filename=new_filename; // necessary due to writing to disk after next round played
-    }
-    FILE *fd;
-    fd = fopen(new_filename.c_str(),"w+");
-    
-    /* write current round, total rounds and remaining flowers */
-    fprintf(fd,"%u %u %u\n", current_round, total_rounds, remaining_flowers);
 
-    /* write width and height of the playing field */
-    fprintf(fd,"%u %u\n", width, height);
+	/* write current round and total rounds */
+	fprintf(fd,"%u/%u:", current_round, total_rounds);
 
-    /* write data about worms */
-    for (int i = 0; i < NUM_PLAYERS; i++ ) {
-        fprintf(fd,"%u %u %u %u %u %u %i\n", worms[i].head_position%width, worms[i].head_position/width, worms[i].tail_position%width, worms[i].tail_position/width, worms[i].rounds_frozen, worms[i].bonus, worms[i].points);
-    }
+	/* write data about kingdoms */
+	for (i = 0; i < NUM_PLAYERS; i++ ) {
+		fprintf(fd," %u %u %u %u %u %u %u", kingdom[i].land, kingdom[i].food,
+			kingdom[i].soldiers, kingdom[i].peasants, kingdom[i].arms,
+			kingdom[i].farming, kingdom[i].secret_services);
+	}
+	fprintf(fd,"\n");
 
-    /* write playfiled itself */
-    for (unsigned y = 0; y < height; y++) {
-	for (unsigned x = 0; x < width; x++)
-            fputc(field[y*width+x], fd);
-	fputc('\n', fd);
-    }
-
-    fclose(fd);
+	fclose(fd);
 }
 
+int PlayField::play_one_round(response_t* moves, string* bots_dir,
+	bool write_to_disk)
+{
+	int left;
+	int i;
 
-void PlayField::play_one_round(char* moves, bool write_to_disk, bool rewrite_original_file) {
-    /* increment current round */
-    if (current_round >= total_rounds) {
-	fprintf(stderr,"Error: trying to play more rounds than maximum defined %d.", total_rounds);
-	return;
-    }
-    if (++current_round == total_rounds) { // then we are playing the very last round
-        // _game_finished is updated at the end of this method
-	cout << "The latest round to be played." << endl;
-    }
+	/* attack/defence/information/.. file descriptors per client */
+	FILE *fd_attack[NUM_PLAYERS];
+	FILE *fd_defence[NUM_PLAYERS];
+	FILE *fd_information[NUM_PLAYERS];
+	FILE *fd_robbery_attack[NUM_PLAYERS];
+	FILE *fd_robbery_defence[NUM_PLAYERS];
 
-    /* canonise moves just to 'L', 'R' or ' '(straight on) */
-    for (unsigned i = 0 ; i < NUM_PLAYERS; i++ ) {
-        moves[i]=toupper(moves[i]);
-        if ((moves[i] != LEFT_MOVE_CHARACTER) && (moves[i] != RIGHT_MOVE_CHARACTER))
-	    moves[i]=STRAIGHT_MOVE_CHARACTER;
-    }
+	/* set of attackers to each kingdom - to avoid defining 
+	  comparator of attack_t, set type replaced by list */
+	list<attack_t> kingdom_attackers[NUM_PLAYERS];
+	list<int> kingdom_robbers[NUM_PLAYERS];
+	list<int> kingdom_act_information;
 
-    /* clear round-related data in worms[] */
-    for (unsigned i = 0 ; i < NUM_PLAYERS; i++ ) {
-	worms[i].new_head_position = worms[i].head_position;
-	worms[i].eaten_this_round = FIELD_EMPTY;
-    }
+	unsigned defender;
+	attack_t attack;
+	int done;
 
-    /* move heads and resolve potential conflicts, decide who will consume flowers or attack others */
-    //set auxiliary field where aux_field[i] is:
-    // = 0 if field i is empty,
-    // = 1 if field will contain one head of a worm after all moves,
-    // > 1 if the field contains already a wall, a worm or more than 1 head after the moves of worms
-    short aux_field[width*height]; 
-    for (unsigned i = 0; i < width*height; i++) {
-        aux_field[i] = ((field[i]==FIELD_EMPTY) || (field[i]==FIELD_FLOWER)|| (field[i]==FIELD_BONUS) || (field[i]==FIELD_ICE)) ? 0 : 2;
-    }
-    // compute new heads of worms based on their current position and their movement
-    for (unsigned i = 0; i < NUM_PLAYERS; i++) {
-        //move heads only if worm is alive and not frozen
-	if (worms[i].rounds_frozen == 0) {
-	    simulate_move_head(i, moves[i]);
-	    //increment the aux.field where the new head is to be
-	    aux_field[worms[i].new_head_position]++;
-	    worms[i].eaten_this_round = field[worms[i].new_head_position];
+	/* increment current round */
+	if (current_round >= total_rounds) {
+		fprintf(stderr,"Error: trying to play more rounds than maximum defined %d.", total_rounds);
+		return 1;
 	}
-    }
-    // check if some worm did not move to wrong field (wall, another worm incl. its moved head)
-    for (unsigned i = 0; i < NUM_PLAYERS; i++) {
-	if ((worms[i].rounds_frozen == 0) && (aux_field[worms[i].new_head_position] > 1)) {
-	    // the worm crashed
-	    worms[i].rounds_frozen = FROZEN_WHEN_DIED;
-	    worms[i].points /= DYING_MALUS_DIVIDE;
-	    worms[i].eaten_this_round = FIELD_EMPTY;
-	    dead_worms++;
-	    printf("Worm %d died in turn %d.\n", i, current_round);
-	}
-    }
-    // finally move heads: set field[new_head_position] properly and update head_position
-    // if the worm did not move (i.e. is frozen or dead), then the switch below does not cause updating field - correct
-    for (unsigned i = 0; i < NUM_PLAYERS; i++) {
-	//move heads of not-frozen worms only
-	if (worms[i].rounds_frozen == 0) {
-    	    //as switch can't handle variables in case branches, we use if-elif-else format
- 	    int diff = (int)worms[i].new_head_position-worms[i].head_position;
-	    if (diff == -(int)width) // worm moving up
-	        field[worms[i].head_position] = field[worms[i].new_head_position] = base_direction_per_worm[i] + 0;
-	    else if (diff == 1) //worm moving right
-	        field[worms[i].head_position] = field[worms[i].new_head_position] = base_direction_per_worm[i] + 1;
-	    else if (diff == (int)width) //worm moving down
-	        field[worms[i].head_position] = field[worms[i].new_head_position] = base_direction_per_worm[i] + 2;
-	    else if (diff == -1) //wrom moving left
-	        field[worms[i].head_position] = field[worms[i].new_head_position] = base_direction_per_worm[i] + 3;
-	    //update head_position to the new one - valid regardless the worm moved or not (due to frozeness)
-	    worms[i].head_position = worms[i].new_head_position;
-	}
-    }
 
-    /* move tails - only if the worm has not eaten a flower and is not frozen */
-    for (unsigned i = 0 ; i < NUM_PLAYERS; i++ ) {
-	if ((worms[i].rounds_frozen == 0) && (worms[i].eaten_this_round != FIELD_FLOWER)) {
-	    switch (field[worms[i].tail_position]-base_direction_per_worm[i]) {
-		case 0: { //move tail up
-		    field[worms[i].tail_position] = FIELD_EMPTY;
-		    worms[i].tail_position -= width;
-		    break;
-		}
-		case 1: { //move tail right
-		    field[worms[i].tail_position] = FIELD_EMPTY;
-		    worms[i].tail_position += 1;
-		    break;
-		}
-		case 2: { //move tail down
-		    field[worms[i].tail_position] = FIELD_EMPTY;
-		    worms[i].tail_position += width;
-		    break;
-		}
-		case 3: { //move tail left
-		    field[worms[i].tail_position] = FIELD_EMPTY;
-		    worms[i].tail_position -= 1;
-		    break;
-		}
-	    }
+	/* open files for wirting attacks and defences of kingdoms */
+	for (i = 0; i < NUM_PLAYERS; i++ ) {
+		string attack_filename = bots_dir[i] + KINGDOM_ATTACK_FILENAME;
+		string defence_filename = bots_dir[i] + KINGDOM_DEFENCE_FILENAME;
+		string information_filename = bots_dir[i] + KINGDOM_INFORMATION_FILENAME;
+		string robbery_attack_filename = bots_dir[i] + KINGDOM_ROBBERY_ATTACK_FILENAME;
+		string robbery_defence_filename = bots_dir[i] + KINGDOM_ROBBERY_DEFENCE_FILENAME;
+
+		fd_attack[i] = fopen(attack_filename.c_str(), "w");
+		if (fd_attack[i] == NULL)
+			return 1;
+
+		fd_defence[i] = fopen(defence_filename.c_str(), "w");
+		if (fd_defence[i] == NULL)
+			return 1;
+
+		fd_information[i] = fopen(information_filename.c_str(), "w");
+                if (fd_information[i] == NULL)
+                        return 1;
+		
+		fd_robbery_attack[i] = fopen(robbery_attack_filename.c_str(), "w");
+                if (fd_robbery_attack[i] == NULL)
+                        return 1;
+		fd_robbery_defence[i] = fopen(robbery_defence_filename.c_str(), "w");
+                if (fd_robbery_defence[i] == NULL)
+                        return 1;
 	}
-    }
+	if (debug)
+		cout << "	kroky    : ";
 
-    /* update points and frozeness of worms */
-    //first decrease frozeness of already frozen worms - can not be in the for cycle below!
-    for (unsigned i = 0 ; i < NUM_PLAYERS; i++ )
-	if ((worms[i].rounds_frozen > 0) && (worms[i].rounds_frozen < FROZEN_WHEN_DIED))
-	    worms[i].rounds_frozen--;
-    //now update points and frozeness based on eaten stuff
-    unsigned flowers_eaten=0, bonuses_eaten=0, ices_eaten=0;
-    for (unsigned i = 0 ; i < NUM_PLAYERS; i++ ) {
-	switch (worms[i].eaten_this_round) {
-	    case (FIELD_FLOWER): {
-		worms[i].points+=(1<<worms[i].bonus);
-		worms[i].bonus=0;
-		flowers_eaten++;
-		break;
-	    }
-	    case (FIELD_BONUS): {
-                worms[i].bonus++;
-		bonuses_eaten++;
-                break;
-            }
-	    case (FIELD_ICE): { //increase frozeness of other worms by 10 rounds
-		for (unsigned j = 0; j < NUM_PLAYERS; j++)
-		    if ((i!=j) && (worms[j].rounds_frozen < FROZEN_WHEN_DIED))
-			worms[j].rounds_frozen += ROUNDS_FROZEN_PER_ICE*(worms[i].bonus+1);
-		worms[i].bonus=0;
-		ices_eaten++;
-		break;
-	    }
-	} // end of switch
-    }
-    // if a worm ate an ice, reset bonuses of all worms
-    if (ices_eaten > 0)
-      for (unsigned i = 0 ; i < NUM_PLAYERS; i++ )
-	worms[i].bonus=0;
-    //update remaining_flowers properly
-    if (remaining_flowers <= flowers_eaten) //(more than) all remaining flowers eaten
-	remaining_flowers = 0;
-    else
-	remaining_flowers -= flowers_eaten;
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		/* update last_moves - history of moves */
+		update_last_moves(i, moves[i][0]);
+		/* improve skills and add people, earn food, prepare battles */
+		done = 0;
+		switch (moves[i][0]) {
+			case ACTION_SOLDIER: {
+				kingdom[i].soldiers++;
+				if (debug)
+					cout << i << ":vojak       ";
+				done = 1;
+				break;
+			}
+			case ACTION_PEASANT: {
+				kingdom[i].peasants++;
+				if (debug)
+					cout << i << ":rolnik      ";
+				done = 1;
+				break;
+			}
+			case ACTION_ARMY: {
+				kingdom[i].arms++;
+				if (debug)
+					cout << i << ":zbrojeni    ";
+				done = 1;
+				break;
+			}
+			case ACTION_FARMING: {
+				kingdom[i].farming++;
+				if (debug)
+					cout << i << ":farmareni   ";
+				done = 1;
+				break;
+			}
+			case ACTION_HARVEST: {
+				kingdom[i].food += (FARMING_MULTIPLIER
+					* kingdom[i].peasants
+					* (1+floor(kingdom[i].farming/FARMING_LEVEL_UP)));
+				if (debug)
+					cout << i << ":sklizen     ";
+				done = 1;
+				break;
+			}
+			case ACTION_SECRETSERVICES: {
+				kingdom[i].secret_services++;
+				if (debug)
+					cout << i << ":tajneSluzby ";
+				done = 1;
+				break;
+			}
+                        case ACTION_ROBBERY: {
+				for (left=0;
+					((left<ROBBERY_ACT_REPEATED) && (kingdom[i].last_moves[left] == ACTION_ROBBERY));
+					left++);
+				if (left == ROBBERY_ACT_REPEATED) {
+					if (EOF == sscanf(moves[i], "l %u", &defender)) {
+						cout << "CHYBA: Kolo " << current_round
+							<< ": chybna syntaxe loupeze " << i
+							<< "teho hrace: \"" << moves[i] << "\"" << endl;
+					} else {
+						// shift defender as attacker (=i) thinks it has ID 0
+						defender = (defender + i) % 4;
+						kingdom_robbers[defender].push_back(i);
+						kingdom[i].last_moves[0] = ACTION_ROBBERY_DONE; // to reset past robberies
+					}
+				}
+				else {
+					sscanf(moves[i], "l %u", &defender); // to read defender, though irrelevant
+					defender = (defender + i) % 4;
+				}
+				if (debug)
+					cout << i << ":loupez u " << defender << "  ";
+				done = 1;
+				break;
+			}
+			case ACTION_INFORMATION: {
+				for (left=0;
+					((left<INFORMATION_ACT_REPEATED) && (kingdom[i].last_moves[left] == ACTION_INFORMATION)); 
+					left++);
+				if (left == INFORMATION_ACT_REPEATED) {
+					kingdom_act_information.push_back(i);
+					kingdom[i].last_moves[0] = ACTION_INFORMATION_DONE; // to reset past information/spy actions
+				}
+				if (debug)
+                            		cout << i << ":informace  ";
+                                done = 1;
+                                break;
+                        }
+			case '\0': { // no response provided => client timeouted
+				if (debug)
+                                        cout << i << ((is_kingdom_alive(i))?(":TIMEOUT    "):(":----       "));
+				done = 1;
+				break;
+			}
+		}
+		if (moves[i][0] == ACTION_ATTACK) {
+			done = 1;
 
-    /* generate new flowers and ices */
-    // count empty fields to prevent end-less loop
-    unsigned empty_fields=0;
-    for (unsigned i = 0; i < width*height; i++) {
-	if (field[i] == FIELD_EMPTY)
-	    empty_fields++;
-    }
-    // generate new flowers (and then ices) if necessary (and until empty fields - that is why we need empty_fields variable)
-    generate_new_stuff(flowers_eaten, &empty_fields, FIELD_FLOWER);
-    generate_new_stuff(ices_eaten, &empty_fields, FIELD_ICE);
-    generate_new_stuff(bonuses_eaten, &empty_fields, FIELD_BONUS);
+			attack.attacker = i;
+			// decode defender and # of attacking soldiers
+			if (EOF == sscanf(moves[i], "u %u %u", &defender, &attack.soldiers)) {
+				cout << "CHYBA: Kolo " << current_round
+					<< ": chybna syntaxe utoku " << i
+					<< "teho hrace: \"" << moves[i] << "\"" << endl;
+			} else {
+				// shift defender as attacker (=i) thinks it has ID 0
+				defender = (defender + i) % 4;
+
+				// check if the attacker has enough soldiers
+				if (attack.soldiers > kingdom[i].soldiers)
+					cout << "CHYBA:" << i << "ty hrac chce utocit s "
+						<< attack.soldiers << "vojaky ale ma jich jen "
+						<< kingdom[i].soldiers << "." << endl;
+				else {
+					/* decrement defending soldiers of attacker 
+					and add the attack for future evaluation */
+					kingdom[i].soldiers -= attack.soldiers;
+					kingdom_attackers[defender].push_back(attack);
+				}
+			}
+			if (debug)
+				cout << i << ": u na " << defender << " " << attack.soldiers << " vojaky    ";
+		}
+		if (done == 0) {
+			if (kingdom[i].land == 0) {
+				if (debug)
+					cout << i << ": ---         ";
+			}
+			else
+				if (debug)
+					cout << i << ": CHYBA neznama akce (" << moves[i] << ")   ";
+		}
+	}
+	if (debug)
+		cout << "\n";
+
+	/* evaluate fights */
+	int land_got[NUM_PLAYERS]; // track land won or lost by a player in battles; negative = loose, positive = win
+	unsigned defence;
+	unsigned sum_attack;
+	list<attack_t>::iterator it;
+	unsigned attacker_lost;
+	unsigned dlost_land, dlost_peasants, dlost_army;
+	float ratio;
+	string attack_list;
+	unsigned land_to_move, lost_land;
+
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		land_got[i] = 0;
+	}
+
+	for (i = 0; i < NUM_PLAYERS; i++)
+		if (!kingdom_attackers[i].empty()) {
+			if (debug)
+				cout << "	utok na  " << i << ": (utocnici:" ;
+			//somebody attacks to this kingdom
+			defence = (int) (DEFENCE_MULTIPLIER * kingdom[i].soldiers * 
+					(int)(kingdom[i].arms / ARMS_LEVEL_UP));
+
+			// compute strength of all attackerer
+			sum_attack = 0;
+			for (it = kingdom_attackers[i].begin();
+				it != kingdom_attackers[i].end();
+				it++) {
+					sum_attack += it->soldiers * (int)(kingdom[(it->attacker)].arms
+						/ ARMS_LEVEL_UP);
+					if (debug)
+						cout << it->attacker << " "; 
+			}
+			if (debug)
+				cout << ") (obranne cislo: "<< defence << ", utocne cislo: " << sum_attack << "), ";
+
+			if (sum_attack > defence) {
+				// attack i/s successfull
+				// how much land and potentially peasants the defender is loosing
+				dlost_land = MIN(sum_attack-defence, kingdom[i].land);
+				dlost_army = kingdom[i].soldiers;
+				dlost_peasants = MIN(sum_attack-defence, kingdom[i].peasants);
+
+
+				/* each attacker gets its relative portion 
+				of lost_land_f (relative to its attack strength) 
+				- rounded down for the sake of simplicity
+				also the attacker looses some soldiers */
+				lost_land = 0;
+				for (it = kingdom_attackers[i].begin();
+					it != kingdom_attackers[i].end(); it++) {
+
+					/* count ratio of attack power */
+					ratio = (float) (it->soldiers * (int)(kingdom[(it->attacker)].arms
+							/ ARMS_LEVEL_UP))/sum_attack;
+
+					/* move proportion of land */
+					land_to_move = (int) (dlost_land  * ratio);
+					land_got[i] -= land_to_move;
+					land_got[it->attacker] += land_to_move;
+					lost_land += land_to_move;
+
+					/* move proportion of attack army */
+					attacker_lost = (int) (defence *ratio /
+						(int) (kingdom[(it->attacker)].arms / ARMS_LEVEL_UP));
+					it->soldiers -= attacker_lost;
+					attack_list = get_relative_attack_list(&(kingdom_attackers[i]), it->attacker);
+
+					if (debug)
+						cout << " " << it->attacker << ": zisk(zeme:" << (int) (dlost_land  * ratio) 
+							<< ", armada:-" << attacker_lost << ") ";
+
+					/* edit attackers log file */
+					fprintf(fd_attack[it->attacker],
+						"cil=%d\nutocnici=%s\n"\
+						"ztraty_ja_vojaci=%d\nztraty_cile_vojaci=%d\n"\
+						"ztraty_cile_rolnici=%d\nzisk_ja_uzemi=%d\n",
+						(4 + i - it->attacker) % 4, attack_list.c_str(),
+						attacker_lost, kingdom[i].soldiers,
+						dlost_peasants, land_to_move);
+				}
+				if (debug) {
+					cout << "obrance: ztraty(zeme:" << dlost_land
+						<< ", armada:" << dlost_army
+						<< ", rolnici:" << dlost_peasants << ")"<< endl;
+				}
+				kingdom[i].peasants -= dlost_peasants;
+
+				// kill all defending soldiers and also peasants, write to defender's output file
+				string attack_list = get_relative_attack_list(&(kingdom_attackers[i]), i);
+				fprintf(fd_defence[i],
+					"utocnici=%s\nztraty_utoku_vojaci=%d\n"\
+					"ztraty_ja_vojaci=%d\nztraty_ja_rolnici=%d\n"\
+					"ztraty_ja_uzemi=%d\n",
+					attack_list.c_str(), attacker_lost,
+					kingdom[i].soldiers, dlost_peasants, lost_land);
+				kingdom[i].soldiers = 0;
+			} else { // attack is not successfull
+
+				if (defence == 0) {
+					dlost_army = 0;
+				} else {
+					dlost_army = (sum_attack * kingdom[i].soldiers)/ defence;
+				}
+				attacker_lost = 0;
+				for (it = kingdom_attackers[i].begin();
+					it != kingdom_attackers[i].end(); it++) {
+
+					attacker_lost += it->soldiers;
+					attack_list = get_relative_attack_list(&(kingdom_attackers[i]), it->attacker);
+					if (debug)
+						cout << " " << it->attacker << ": zisk(zeme:0 , armada:-" << it->soldiers << " ) ";
+
+					fprintf(fd_attack[it->attacker],
+						"cil=%d\nutocnici=%s\n"\
+						"ztraty_ja_vojaci=%d\nztraty_cile_vojaci=%d\n"\
+						"ztraty_cile_rolnici=%d\nzisk_ja_uzemi=%d\n",
+						(4 + i - it->attacker) % 4, attack_list.c_str(),
+						it->soldiers, dlost_army, 0, 0);
+					it->soldiers = 0;
+				}
+
+				// kill relative portion of defending soldiers
+				attack_list = get_relative_attack_list(&(kingdom_attackers[i]), i);
+				kingdom[i].soldiers -= dlost_army;
+
+				if (debug)
+					cout << "obrance: ztraty(zeme: 0, armada:"
+						<< dlost_army << ", rolnici:0 )"<< endl;
+
+				fprintf(fd_defence[i],
+					"utocnici=%s\nztraty_utoku_vojaci=%d\n"\
+					"ztraty_ja_vojaci=%d\nztraty_ja_rolnici=%d\n"\
+					"ztraty_ja_uzemi=%d\n",
+					attack_list.c_str(), attacker_lost,
+					dlost_army, 0, 0);
+		}
+	}
+
+	/* evaluate robberies */
+	list<int>::iterator iter;
+        unsigned arms_robbery_gain[NUM_PLAYERS];
+        unsigned arms_robbery_loose[NUM_PLAYERS];
+	unsigned arms_robbery;
+        unsigned farming_robbery_gain[NUM_PLAYERS];
+        unsigned farming_robbery_loose[NUM_PLAYERS];
+	unsigned farming_robbery;
+	string robbery_attackers[NUM_PLAYERS];
+
+
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		arms_robbery_gain[i]=0;
+		arms_robbery_loose[i]=0;
+		farming_robbery_gain[i]=0;
+		farming_robbery_loose[i]=0;
+		robbery_attackers[i]="";
+	}
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		for (iter = kingdom_robbers[i].begin();
+			iter != kingdom_robbers[i].end();
+			iter++)
+		{
+			fprintf(fd_robbery_attack[*iter], "cil=%d\n", i);
+			robbery_attackers[i] = robbery_attackers[i] + (char)((*iter)+48) + ",";
+			if (debug)
+				cout << "        loupez u " << i << ": (utocnici:" << *iter <<" ) ";
+			/* evaluate robbery of arms */
+			if (kingdom[i].arms > kingdom[*iter].arms)
+			{
+				arms_robbery = MIN(kingdom[i].arms,2);
+				arms_robbery_loose[i] += arms_robbery;
+				arms_robbery_gain[*iter] += arms_robbery;
+				fprintf(fd_robbery_attack[*iter], "zisk_ja_zbrojeni=%d\nztraty_cile_zbrojeni=%d\n", arms_robbery, arms_robbery);
+				if (debug)
+					cout << "utocnik: zisk(vs:" << arms_robbery;
+			}
+			else
+			{
+				arms_robbery = MIN(kingdom[i].arms,1);
+				arms_robbery_loose[i] += arms_robbery;
+				fprintf(fd_robbery_attack[*iter], "zisk_ja_zbrojeni=0\nztraty_cile_zbrojeni=%d\n", arms_robbery);
+				if (debug)
+					cout << "utocnik: zisk(vs:0";
+			}
+
+			/* evaluate robbery of farming tech */
+			if (kingdom[i].farming > kingdom[*iter].farming) {
+				farming_robbery = MIN(kingdom[i].farming,2);
+	                        farming_robbery_loose[i] += farming_robbery;
+                                farming_robbery_gain[*iter] += farming_robbery;
+				fprintf(fd_robbery_attack[*iter], "zisk_ja_farmareni=%d\nztraty_cile_farmareni=%d\n", farming_robbery, farming_robbery);
+				if (debug)
+					cout << ", fs:" << farming_robbery;
+                        } else {
+				farming_robbery = MIN(kingdom[i].farming,1);
+                                farming_robbery_loose[i] += farming_robbery;
+				fprintf(fd_robbery_attack[*iter], "zisk_ja_farmareni_ukradeno=0\nztraty_cile_farmareni=%d\n", farming_robbery);
+				if (debug)
+					cout << ", fs:0";
+                        }
+			/* rest print out */
+			if (debug) {
+				cout << ") obrance: ztrata(vs:" << arms_robbery << ", fs:" << farming_robbery << ")" << endl;
+			}
+		}
+	}
+
+	/* update skills and write to loupez_obrana.txt files */
+	for (i = 0; i < NUM_PLAYERS; i++)
+	{
+		if (robbery_attackers[i].length() > 0)
+		{
+			robbery_attackers[i].erase(robbery_attackers[i].length()-1);
+			fprintf(fd_robbery_defence[i], 
+				"utocnici=%s\nztraty_ja_zbrojeni=%d\nztraty_ja_farmareni=%d\n", 
+				robbery_attackers[i].c_str(), MIN(kingdom[i].arms,arms_robbery_loose[i]), 
+				MIN(kingdom[i].farming,farming_robbery_loose[i]));
+		}
+		kingdom[i].arms = kingdom[i].arms + arms_robbery_gain[i] - MIN(kingdom[i].arms,arms_robbery_loose[i]);
+		kingdom[i].farming = kingdom[i].farming + farming_robbery_gain[i] - MIN(kingdom[i].farming,farming_robbery_loose[i]);
+	}
+
+	/* evaluate information / spying */
+	for (iter=kingdom_act_information.begin();
+		iter != kingdom_act_information.end();
+		iter++)
+	{
+		for (i = 1; i < NUM_PLAYERS; i++)
+			if (kingdom[((*iter)+i)%NUM_PLAYERS].secret_services < kingdom[*iter].secret_services)
+			{
+				string kingdom_details = get_kingdom_details(((*iter)+i)%NUM_PLAYERS);
+				fprintf(fd_information[*iter],"%d: %s\n", i, kingdom_details.c_str());
+				if (debug)
+					cout << "       kralovstvi " << *iter
+						<< " ziskalo informace o stavu kralovstvi "
+						<< ((*iter)+i)%NUM_PLAYERS << endl;
+			}
+	}
+
+	/* update kingdoms' land, re-calculate dead_kingdoms */
+	dead_kingdoms = 0;
+	for (i = 0; i < NUM_PLAYERS; i++) {
+	kingdom[i].land += land_got[i];
+		if (kingdom[i].land == 0) {
+			dead_kingdoms++;
+			if ((kingdom[i].arms+kingdom[i].farming+kingdom[i].secret_services) != 0) {
+				if (debug) {
+					cout << "		KRALOVSTVI " << i << " ZANIKLO" << endl;
+				}
+				kingdom[i].soldiers = 0;
+				kingdom[i].arms = 0;
+				kingdom[i].peasants = 0;
+				kingdom[i].farming = 0;
+				kingdom[i].food = 0;
+				kingdom[i].secret_services = 0;
+			}
+		}
+	}
+
+	/* move soldiers back from battles */
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		for (it = kingdom_attackers[i].begin(); it != kingdom_attackers[i].end(); it++)
+			kingdom[it->attacker].soldiers += it->soldiers;
+	}
+
+	/* feed soldiers and peasants */
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		// first feed peasants
+		if (kingdom[i].food >= kingdom[i].peasants)
+			kingdom[i].food -= kingdom[i].peasants;
+		else {
+			left = kingdom[i].peasants - kingdom[i].food;
+			kingdom[i].peasants -= left;
+			kingdom[i].food = 0;
+			if (debug) {
+				cout << "	ztraty:   kralovstvi " << i << "nema dost potravy, "
+					<< left << " rolniku umrelo" << endl;
+			}
+		}
+		// then feed soldiers
+		if (kingdom[i].food >= kingdom[i].soldiers) {
+			kingdom[i].food -= kingdom[i].soldiers;
+		} else {
+			left = kingdom[i].soldiers - kingdom[i].food;
+			kingdom[i].soldiers -= left;
+			kingdom[i].food = 0;
+			if (debug) {
+				cout << "	ztraty:   kralovstvi " << i << "nema dost potravy, "
+					<< left << " vojaku umrelo" << endl;
+			}
+		}
+	}
+
+	for (i = 0; i < NUM_PLAYERS; i++ ) {
+		fclose(fd_attack[i]);
+		fclose(fd_defence[i]);
+        	fclose(fd_information[i]);
+        	fclose(fd_robbery_attack[i]);
+        	fclose(fd_robbery_defence[i]);
+	}
+
+	if (debug) {
+		for (i = 0; i < NUM_PLAYERS; i++ ) {
+			if (kingdom[i].land != 0){
+				/* live */
+				cout << "	po akci  : " << i << ": uzemi:" << kingdom[i].land
+					<< ", zasoby:" << kingdom[i].food
+					<< ", vojaci:" << kingdom[i].soldiers << ", rolnici:" 
+					<< kingdom[i].peasants << ", zbrojeni:" << kingdom[i].arms 
+					<< ", farmareni:" << kingdom[i].farming << ", tajne sluzby:"
+					<< kingdom[i].secret_services << endl;
+			} else {
+				/* dead */
+				cout << "	po akci  : ----" << endl;
+			}
+		}
+	}
 
     /* update whether the game hasn't just finished */
-    _game_finished=((current_round >= total_rounds) || (remaining_flowers <= 0) || (dead_worms == NUM_PLAYERS));
+    increase_current_round();
+    _game_finished=((current_round >= total_rounds) || (dead_kingdoms == NUM_PLAYERS - 1));
 
     /* write to disk the new playfield */
     if (write_to_disk)
-	write_playfield_to_disk(rewrite_original_file);
+	write_playfield_to_disk("a");
+    return 0;
 }
 
-void PlayField::simulate_move_head(unsigned player, char move) {
-    /* big switch adding absolute direction of worm and its move (left, right, straight) 
-     * the switch utilises the fact that move letters 'L', 'R' and ' ' are "far enough" from each other
-     * such that adding to them absolute direction (0 to 3) makes a unique number */
-    switch (0+field[worms[player].head_position]-base_direction_per_worm[player] + move) {
-        /* finally move to up: */
-	case 3+RIGHT_MOVE_CHARACTER: // directing left, turn right
-	case 0+STRAIGHT_MOVE_CHARACTER: // directing up, no change
-	case 1+LEFT_MOVE_CHARACTER: // directing right, turn left
-	    {
-		field[worms[player].head_position] = base_direction_per_worm[player]+0;
-		worms[player].new_head_position = worms[player].head_position-width;
-		break;
-	    }
-	/* finally move to right: */
-	case 0+RIGHT_MOVE_CHARACTER: // directing up, turn right
-	case 1+STRAIGHT_MOVE_CHARACTER: // directing right, no change
-	case 2+LEFT_MOVE_CHARACTER: // directing down, turn left
-	    {
-		field[worms[player].head_position] = base_direction_per_worm[player]+1;
-		worms[player].new_head_position = worms[player].head_position+1;
-		break;
-	    }
-	/* finally move to down: */
-	case 1+RIGHT_MOVE_CHARACTER: // directing right, turn right
-	case 2+STRAIGHT_MOVE_CHARACTER: // directing down, no change
-	case 3+LEFT_MOVE_CHARACTER: // directing left, turn left
-	    {
-		field[worms[player].head_position] = base_direction_per_worm[player]+2;
-		worms[player].new_head_position = worms[player].head_position+width;
-		break;
-	    }
-	/* finally move left: */
-	case 2+RIGHT_MOVE_CHARACTER: // directing down, turn right
-	case 3+STRAIGHT_MOVE_CHARACTER: // directing left, no change
-	case 0+LEFT_MOVE_CHARACTER: // directing up, turn left
-	    {
-		field[worms[player].head_position] = base_direction_per_worm[player]+3;
-		worms[player].new_head_position = worms[player].head_position-1;
-		break;
-	    }
-	default: fprintf(stderr, "Invalid movement evaluation of worm %d with head on [%d,%d] and move \'%c\'\n", 
-			player, worms[player].head_position%width, worms[player].head_position/width, move);
-    }
-}
-
-void PlayField::generate_new_stuff(unsigned _eaten, unsigned *empty_fields, const char to_fill_char) {
-    for (; ((_eaten > 0) && ((*empty_fields) > 0)); _eaten--, (*empty_fields)-- ) {
+void PlayField::get_kingdoms_lands(int lands[])
+{
 	unsigned i;
-	do {
-	    i=random()%(width*height);
-	} while (field[i] != FIELD_EMPTY);
-	field[i] = to_fill_char;
-    }
+
+	for (i = 0; i < NUM_PLAYERS; i++) {
+		lands[i] = kingdom[i].land;
+	}
 }
 
-void PlayField::get_worms_points(int points[]) {
-    for (unsigned i = 0; i < NUM_PLAYERS; i++)
-	points[i] = worms[i].points;
+string PlayField::get_kingdom_details(unsigned player)
+{
+	char buf[100];
+
+	sprintf (buf,"%u %u %u %u %u %u %u", kingdom[player].land,
+		kingdom[player].soldiers, kingdom[player].peasants,
+		kingdom[player].arms, kingdom[player].farming,
+		kingdom[player].food, kingdom[player].secret_services);
+	return (string)buf;
+}
+
+void PlayField::update_last_moves(int player, char move)
+{
+	for (unsigned position=MAX_ACT_HISTORY-1; position > 0; position--)
+		kingdom[player].last_moves[position]=kingdom[player].last_moves[position-1];
+	kingdom[player].last_moves[0]=move;
 }

@@ -1,79 +1,192 @@
-Základní pravidla:
-------------------
-Cílem je v libovolném programovacím jazyce implementovat strategii pro robota / červa. Červ se pohybuje na hracím plánu spolu se 3 soupeřícími červy. Na hracím plánu jsou rozmístěny zdi a bonusové předměty (kytičky, krystaly ledu a bonusy). Pokud červ vstoupí na pole s kytičkou, prodlouží se a získá body. Led pak znamená zmražení ostatních červů na několik následujících kol. Bonus zvyšuje efekt kytičky či ledu. Více bonusů za sebou má násobící efekt. Pokud červ vstoupí na políčko kde je zeď anebo jiný červ, umírá.
-Vítězí červ který získal po daném počtu kol nejvíc bodů.
 
-Podrobná pravidla:
----------------
-1) Hrací plán je čtvercová síť. Čtvereček / políčko může být jedním z uvedených typů:
-	a. prázdné pole - nic zajímavého
-	b. stěna - pokud do ní narazí nějaký červ, pak ten umírá
-	c. segment červa - každý červ leží na několika vzájemně sousedních polích, začínajících červí hlavou (odkud se červ pohybuje dále dopředu) a končících ocasem (odkud se červ odsouvá pryč)
-	d. květina - snězením květiny červ získává vítězné body (více viz bonus)
-	e. led - snězením ledu budou ostatní červi po několik následujících kol zmraženi a nemohou se pohybovat, zároveň se všem červům zresetuje bonus
-	f. bonus - snězení bonusu násobí efekt snězení květiny a/nebo ledu. Snězení více bonusů za sebou (tak že mezi nimi červ nesnědl žádnou kytičku ani led) se sčítá. Snědl-li červ B bonusů "za sebou", pak:
-		- snězením kytičky červ získá 2^B vítězných bodů
-		- snězením ledu červ zmrazí ostatní červy na následujících (B+1)*5 kol
-2) Okrajová políčka každého hracího plánu jsou zdi.
-3) Hra je rozdělena na jednotlivá kola. V každém kole se každý žijící nezmrazený červ posune od své hlavy jedno políčko dále - buď kupředu ve směru původního pohybu, nebo nalevo či napravo, v závislosti na příkazu obdrženém od strategie/implmentace příslušného robota. Pohyby všech červů jsou vždy vyhodnoceny souběžně.
-4) Na začátku každé hry jsou 4 červi (každý o délce 2 políček) umístění ve vzájemně symetrických pozicích.
-5) V každém kole se provedou tyto kroky v tomto pořadí:
-	a. Server spustí implementace robotů - technické detaily jsou uvedeny níže.
-	b. Server počká 3 sekundy na odpovědi od robotů. Žádná anebo chybná odpověď je interpretována jako "jdi rovně".
-	c. Po uvedených 3 sekundách server všechny dosud běžící procesy robotů zabije.
-	d. Server vyhodnotí pohyby hlav červů a vyřeší případné nárazy červů do zdí či do jiných červů. Jakýkoliv červ narážející do zdi či do jiného červa ihned umírá. Pokud více červů se snaží posunout své hlavy na jedno políčko, všichni tito červi ihned umírají. Pozor na to, že hlavy se posouvají před možným posunem ocasů všech červů, tedy hlava červa může narazit do ocasu červa (který z daného políčka následně odleze). Smrt červa je penalizována ztrátou poloviny bodů (zaokrouhleno dolů).
-	e. Hlavy živých a nezmrazených červů jsou přesunuty.
-	f. Pokud červ v tomto kole snědl kytičku, potom:
-		- získá vítězné body dle výše svého aktuálního bonusu
-		- kytička zmizí z políčka
-		- červ se prodlouží o jedno políčko - jeho ocas se toto kolo neposune
-		- bonus červa se zresetuje na nulu
-	g. Pokud červ v tomto kole snědl ledový krystal, potom:
-		- led zmizí z políčka
-		- všichni ostatní červi budou zmrazeni na několik následujících kol - dle aktuální výše bonusu tohoto červa
-		- bonusy všech červů se na konci tohoto kola zresetují na nulu
-	h. O jedno políčko se odsunou ocasy všech červů kteří žijí, nebyli na začátku kola zmrazeni a v tomto kole nesnědli kytičku.
-	i. "Zmraženost" všech červů se aktualizuje. Tedy pokud červ byl zmražen na začátku kola, jeho "zmraženost" se sníží o jedna. A pokud nějaký jiný červ v tomto kole snědl led, "zmraženost" tohoto červa se příslušně zvýší.
-	j. Pokud nějaký červ snědl v tomto kole ledový krystal, potom bonusy všech červů se nyní zresetují na nulu.
-	k. Jakákoliv kytička, led či bonus snězené v tomto kole se objeví na náhodném místě hracího plánu.
-6) Těla mrtvých červů zůstávají na hracím plánu do konce hry.
-7) Pokud počet kytiček snězených od začátku hry dosáhne předem známé hranice, hra končí.
-8) Pokud počet odehraných kol dosáhne předem známé hranice, hra končí. Všechny hrací plány jsou konstruovány tak, že kytičky by měly být snězeny dříve než se odehraje daný počet kol.
-9) Na konci hry mají význam pouze získané body.
+    Pravidla
 
-Technická / implementační pravidla:
------------------------------------
-Cílem je naimplementovat program spustitelný na Linuxu (Fedora 16) v jakémkoliv "běžném" programovacím či skriptovacím jazyce. Odevzdávány budou zdrojové kódy, které se zkompilují až u organizátorů. V případě použití nestandardních knihoven či programovacích jazyků (nevyskytujících se ve standardní instalaci Fedory 16) prosím zkontaktujte s předstihem organizátory.
+Proti sobě je postaveno několik království které soupeří o území. Budují
+si armádu a dobývají protivníkovy území. Najímají rolníky na produkci
+jídla, zlepšují si efektivitu svých akcí a můžou provádět speciální akce
+(které lze u jednodušších strategií ignorovat - popsány jsou až dále).
 
-Uvedený program bude spouštěn se dvěma argumenty. První z nich je název souboru se současným hracím plánem. Druhý je ID červa, jehož tento program má ovládat. ID je od 0 (první červ) do 3 (čtvrtý červ). Program by měl během 3 sekund napsat na standardní výstup právě jeden znak popisující pohyb červa v tomto kole. Uvedený znak má tento význam:
-a) 'l' nebo 'L': zahni hlavou červa doleva
-b) 'r' nebo 'R': zahni hlavou červa doprava
-c) '.': pokračuj rovně
-d) cokoliv jiného nebo žádná odpověď: pokračuj rovně
+Hraje se na předem daný počet kol a na konci hry vítězí království s
+největším územím.
 
-Formát souboru s hracím plánem je textový soubor s řádky ukončenými znakem 'CR'. Soubor obsahuje:
-1) První řádek se třemi čísly: číslo současného kola, maximální počet kol na odehrání a počet zbývajících kytiček do konce hry
-2) Druhý řádek má dvě čísla: šířku a výšku hracího plánu
-3) Třetí až šestý řádek obsahuje informace týkající se prvního až čtvrtého červa. Každý řádek obsahuje tato čísla: pozici X (vodorovná osa) hlavy červa, pozici Y (svislá osa) hlavy červa, pozici X ocasu červa, pozici Y ocasu červa, počet kol které bude červ zamrznutý, červův současný bonus a počet vítězných bodů
-	a) Každá souřadnice na obou osách začíná nulou.
-	b) Souřadnice se poočítají zleva doprava a shora dolů. Tedy souřadnice levého horního rohu jsou [0,0] a pravého dolního rohu jsou [šířka-1,výška-1].
-	c) Červ je mrtvý právě tehdy když počet kol které bude červ zamrznutý je 999999999.
-4) Následujících (výška) řádků, každý obsahující (šířka) znaků (plus znak 'CR' na konci řádku), popisuje vlastní hrací pole. Každý znak popisuje právě jedno políčko plánu, kde:
-	a) ' ' je prázdné políčko
-	b) '.' je kytička
-	c) '*' je led
-	d) '+' je bonus
-	e) '#' je zeď
-	f) znaky 'a' až 'd' značí jeden segment prvního červa (červ s ID 0), kde jednotlivé znaky popisují směr pohybu červa od tohoto segmentu směrem k hlavě. Tedy písmeno na ocase červa bude znamenat směr k předposlednímu segmentu červa, zatímco písmeno na hlavě červa znamená směr kterým se červ pohybuje. Jednotlivé znaky značí směr:
-		- 'a' je směr "nahoru" (k nižší souřadnici Y)
-		- 'b' je směr "doprava" (k vyšší souřadnici X)
-		- 'c' je směr "dolů" (k vyšší souřadnici Y)
-		- 'd' je směr "doleva" (k nižší souřadnici X)
-	g) znaky 'h' až 'k' mají stejný význam jako znaky 'a' až 'd' ale pro druhého červa, znaky 'o' až 'r' mají stejný význam pro třetího červa a znaky 'w' až 'z' mají stejný význam pro čtvrtého červa.
+Každé království má tyto základní parametry:
+
+    * území
+    * jídlo
+    * vojáky
+    * úroveň zbrojení
+    * rolníky
+    * úroveň farmaření
+
+Soupeřící království jsou označena 1, 2 a 3 (viz id. království).
+
+Každé kolo může království provést právě jednu z těchto akcí:
+
+kód	možná akce	její výsledek
+v	verbovat vojáka	1 nový voják
+r	vyučit rolníka	1 nový rolník
+z	vylepšit úroveň zbrojení	úroveň zbrojení se zvýší o 1
+f	vylepšit úroveň farmaření	úroveň farmaření se zvýší o 1
+s	sklízet úrodu	do sýpky přibude 3*(počet_rolníků)*(úroveň_farmaření DIV
+3) jednotek jídla, kde DIV je celočíselné dělení beze zbytku
+u <id_království> <počet_vojáků>	útočit na vybrané království	na dané
+království bude proveden útok o síle (počet_vojáků)*(úroveň_zbrojení)
+
+Akce se vyhodnocují v tomto pořadí:
+
+   1. naverbují se vojáci, vyučí rolníci, zlepší se úrovně vlastností a
+      provede se sklizeň
+   2. vyhodnotí se útoky
+          * spočítá se útočná síla (počet_útočníků)*(úroveň_zbrojení DIV
+            3) a obraná síla (počet_obránců)*(úroveň_zbrojení DIV 3)*1.5
+            (zaokrouhleno na celé číslo dolů)
+          * zemřou všichni vojáci strany která prohrála a příslušný
+            poměr vojáků vítěze
+                o pokud útočník vyhraje, získává od obránce území
+                  velikosti rozdílu (útočná_síla-obraná_síla) a zabije
+                  obránci stejný počet rolníků
+                o pokud útočí více království na jedno, síly útočníků se
+                  sčítají a útok se vyhodnotí jako společný. Případné
+                  vyhrané území a mrtví vojáci se počítají pro každého
+                  útočníka proporčně
+   3. automaticky se na konci kola odečtou zásoby jídla nutné na provoz
+      království (každý rolník a voják spotřebuje za kolo 1 jednotku
+      jídla). Pokud království dojdou zásoby, obyvatelé, které nebylo
+      možné nakrmit umírají hlady. Nejdříve vojáci, pak rolníci.
 
 
-Upozornění:
------------
-1) Třísekundový časový limit je striktní a platný pro situaci, kdy běží čtyři implementace jednotlivých robotů/červů paralelně. Reálná efektivní doba výpočtu dalšího kroku je tedy čtvrtinová.
-2) Vyhodnocení bude probíhat na notebooku Lenovo T510, pro detailní HW profil napište na redbot@redhat.com
-3) Na notebooku bude nainstalován operační systém Fedora 16 v defaultní konfiguraci. Při použití jakékoliv nestandardní knihovny, skriptovacího či programovacího jazyka, zkonzultujte prosím s organizátory zda vaše implementace se přeloží bez problémů.
+    Speciální vlastnosti a akce
+
+kód	možná akce	její výsledek
+t	vylepšit úroveň tajných služeb	úroveň tajných služeb se zvýší o 1
+i	získat informace o ostatních královstvích	pokud je akce provedena ve
+dvou po sobě jdoucích kolech, pak se útočník dozví současný stav všech
+království která mají nižší úroveň tajných služeb
+l <id_kralovstvi>	loupit svitky se znalostmi daného království	pokud je
+akce provedena ve třech po sobě jdoucích kolech, pak se provede loupežný
+útok na knihovnu daného království
+
+Loupež se provádí nezávisle na obě základní vlastnosti (zbrojení a
+farmaření). Vyhodnocuje se takto: Pokud má obránce vyšší úroveň
+vlastnosti zbrojení, pak útočník ukradne dvě úrovně (o 2 se sníží
+vlastnost obránci a o 2 se zvýší útočníkovi). Pokud má obránce stejnou
+nebo menší úroveň zbrojení, pak se útočník nedozvěděl nic nového ale
+poničil jeden svitek obránci (obráncova úroveň zbrojení se sníží o 1).
+Stejně se vyhodnotí loupežný útok na farmaření.
+
+Speciální akce se provádí po útocích a před odečtem zásob jídla, a to v
+pořadí loupež svitků a pak zjisti informace.
+
+
+    Implementace
+
+Strategie se spouští s 8 parametry na příkazové řádce:
+
+./strategie 99 1 2 3 4 5 6 7
+
+Kde parametry mají tento význam: 99 kol do konce, vaše království má 1
+území, 2 vojáky, 3 rolníky, 4 úrovně zbrojení, 5 úrovní farmaření, 6
+jídla na skladu a 7 úrovní tajných služeb.
+
+    * Každá strategie musí na standardní výstup odpovědět do 2 sekund
+      jednou z akcí (jejím kódem a případnými argumenty).
+    * Každé království vidí ostatní království pod ID 1 až 3. Vaše
+      království má vždy ID 0.
+    * Implementace jednotlivých strategií si mohou do svého pracovního
+      adresáře ukládat jakékoliv pomocné soubory.
+    * Dodatečné informace o výsledcích akcí jsou v informačních
+      souborech v pracovním adresáři každé strategie.
+
+
+    Informační soubory
+
+    * utok.txt
+    * obrana.txt
+    * loupez_utok.txt
+    * loupez_obrana.txt
+    * informace.txt
+
+
+      utok.txt
+
+Obsahuje informace o výsledcích mého útoku na cizí království v minulém
+kole.
+
+cil=3
+utocnici=0
+ztraty_ja_vojaci=1
+ztraty_cile_vojaci=1
+ztraty_cile_rolnici=3
+zisk_ja_uzemi=9
+
+Takže: na království 3, v minulém kole útočilo království 0 (to jsem
+já). Vaše útočící armáda přišla o 1 vojáka, cílové království ztratilo
+také jednoho ale navíc 3 rolníky. Útok vašemu království přinesl 9 území.
+
+
+      obrana.txt
+
+Obsahuje informace o výsledcích útoků na mé království v minulém kole.
+
+utocnici=1,2
+ztraty_utoku_vojaci=1
+ztraty_ja_vojaci=1
+ztraty_ja_rolnici=3
+ztraty_ja_uzemi=9
+
+Takže: na mé království (tedy království 0) v minulém kole zaútočila
+království 1 a 2. Útočníci dohromady ztratili jednoho vojáka, já ztratil
+1 vojáka a 3 rolníky. Přišel jsem o 9 území.
+
+
+      loupez_utok.txt
+
+Obsahuje informace o výsledcích mého loupení v minulém kole.
+
+cil=2
+zisk_ja_zbrojeni=0
+ztraty_cile_zbrojeni=1
+zisk_ja_farmareni=2
+ztraty_cile_farmareni=2
+
+Takže: protože obráncovo zbrojení bylo vyšší ale farmaření nižší, lupič
+zničil jednu úroveň zbrojení cíle, ale žádnou nezískal. Co se úrovně
+farmaření týče byl úspěšnější, protože 2 úrovně cíli zničil a 2 přinesl
+do svého království.
+
+
+      loupez_obrana.txt
+
+Obsahuje informace o výsledcích cizího loupení u mě v minulém kole.
+
+utocnici=2,3
+ztraty_ja_zbrojeni=3
+ztraty_ja_farmareni=4
+
+Zde jeden z útočníků měl vyšší a jeden nižší úroveň zbrojení a oba
+útočníci měli nižší úroveň farmaření.
+
+
+      informace.txt
+
+Obsahuje zjištěné informace o ostatních královstvích na konci minulého kola.
+
+1: 25 3 1 3 3 43 0
+2: 25 2 1 3 3 43 0
+3: 25 1 1 3 3 43 0
+
+Takže: například království 2 má 25 území, 2 vojáky, 1 rolníka, 3 úrovně
+zbrojení, 3 úrovně farmaření, 43 jídla a 0 úrovní tajných služeb.
+
+
+    Spuštění serveru
+
+    * Jak přeložit zdrojový kód serveru: |make|
+    * Typické spuštění serveru: |./redbot -f default_playfield.txt
+      strategie1/random.sh strategie2/random.sh strategie3/random.sh
+      strategie4/random.sh|
+    * V adresáři |strategie/| jsou 3 testovací strategie
+    * Zobrazení historie hry (jak se měnilo území jednotlivých
+      království) - nutné mít nainstalován Gnuplot:
+      |./historie_zapasu.sh <soubor_s_historii_hry>|
+

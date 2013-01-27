@@ -3,72 +3,88 @@
 
 #include <string>
 
-#define NUM_PLAYERS 4
-#define ONE_ROUND_DELAY 3000 //in milliseconds
-#define CHECK_BOTS_INTERVAL 100 //in milliseconds
-#define FIELD_DEFAULT_FILENAME "/tmp/field.txt"
-const char FIELD_EMPTY = ' ';
-const char FIELD_WALL = '#';
-const char FIELD_FLOWER = '.';
-const char FIELD_BONUS = '+';
-const char FIELD_ICE = '*';
-#define ROUNDS_FROZEN_PER_ICE 5
-#define DYING_MALUS_DIVIDE 2
-const char LEFT_MOVE_CHARACTER = 'L';
-const char RIGHT_MOVE_CHARACTER = 'R';
-const char STRAIGHT_MOVE_CHARACTER = ' ';
-//#define DYING_PENALTY_POINTS 10
-#define MAX_ROUNDS_PLAYED 10000
-const unsigned FROZEN_WHEN_DIED = 999999999; //must be more than number_of_rounds_in_any_game*ROUNDS_FROZEN_PER_HIT
-const char base_direction_per_worm[NUM_PLAYERS] = { 'a', 'h', 'o', 'w' }; //must be of size NUM_PLAYERS
+#define NUM_PLAYERS 			 4
+#define ONE_ROUND_DELAY			 2000		//in milliseconds
+#define CHECK_BOTS_INTERVAL		 100		//in milliseconds
+#define FIELD_DEFAULT_FILENAME		 "/tmp/field.txt"
+#define PLAY_SNAPSHOTS_FILE_SUFFIX	 ".lastplay"
+#define KINGDOM_ATTACK_FILENAME		 "utok.txt"
+#define KINGDOM_DEFENCE_FILENAME	 "obrana.txt"
+#define KINGDOM_INFORMATION_FILENAME     "informace.txt"
+#define KINGDOM_ROBBERY_ATTACK_FILENAME  "loupez_utok.txt"
+#define KINGDOM_ROBBERY_DEFENCE_FILENAME "loupez_obrana.txt"
 
-/* directions used (offset from first letter):
- * 0: up
- * 1: right
- * 2: down
- * 3: left
+
+#define ARMS_LEVEL_UP                   3.0
+#define FARMING_LEVEL_UP		3.0
+/* how much to multiply food earned from merchanding
+(FARMING_MULTIPLIER * peasants * (1+floor(farming/FARMING_LEVEL_UP))
  */
+#define FARMING_MULTIPLIER		3
+#define DEFENCE_MULTIPLIER		1.5
+#define INFORMATION_ACT_REPEATED	2
+#define ROBBERY_ACT_REPEATED		3
+#define MAX_ACT_HISTORY (((INFORMATION_ACT_REPEATED) < (ROBBERY_ACT_REPEATED)) ? (ROBBERY_ACT_REPEATED) : (INFORMATION_ACT_REPEATED))
+
+const char ACTION_SOLDIER = 'v';	/* "voják" */
+const char ACTION_PEASANT = 'r';	/* "rolník" */
+const char ACTION_ARMY = 'z';		/* "zbraně" */
+const char ACTION_FARMING = 'f';	/* "bankovnictví" */
+const char ACTION_HARVEST = 's';        /* "sklizeň" */
+const char ACTION_ATTACK = 'u';		/* "utok", format is: u kingdom_id attacking_soldiers    
+					    where kingdom_id is from 1 to 3 for every kingdom */
+const char ACTION_SECRETSERVICES = 't'; /* "tajné služby */
+const char ACTION_INFORMATION = 'i';    /* "informace o ostatních královstvích */
+const char ACTION_ROBBERY = 'l';        /* "loupež", format is: l kingdom_id */
+
+/* auxiliary values to reset history after successfull robbery / information action (e.g. to resolve case when robberying for 3 rounds causes robbery in last 2 rounds */
+const char ACTION_ROBBERY_DONE = 'L';
+const char ACTION_INFORMATION_DONE = 'I'; 
 
 using namespace std;
 
 const string run_bot_under_user[4] = { "botuser0", "botuser1", "botuser2", "botuser3" };
 
+typedef char response_t[128];
+
 class PlayField
 {
-    struct worm_info_t {
-        unsigned head_position;
-	unsigned new_head_position;
-	unsigned tail_position;
-    	int points;
-	unsigned rounds_frozen;
-	unsigned bonus;
-	char eaten_this_round;
-    };
+	struct kingdom_info_t {
+		unsigned land;
+		unsigned soldiers;
+		unsigned peasants;
+		unsigned arms;
+		unsigned farming;
+		unsigned food;
+		unsigned secret_services;
+		char last_moves[MAX_ACT_HISTORY];
+	};
 
-    public:
-    	PlayField(const string _filename);
-    	~PlayField();
+public:
+	PlayField(const string _filename);
+	~PlayField();
 	bool loaded_ok() { return field_loaded; };
 	bool game_finished() { return _game_finished; };
-	void write_playfield_to_disk(bool rewrite_original_file);
-	void play_one_round(char* moves, bool write_to_disk=true, bool rewrite_original_file=false);
+	int play_one_round(response_t* moves, string* bots_dir, bool write_to_disk=true);
 	unsigned get_current_round() { return current_round; };
+	unsigned get_remaining_rounds() { return total_rounds - current_round; };
 	string get_current_filename() { return filename; };
-	void get_worms_points(int points[NUM_PLAYERS]);
-	bool is_worm_alive(unsigned player) { return (worms[player].rounds_frozen < FROZEN_WHEN_DIED); }
-    private:
-	void simulate_move_head(unsigned player, char move);
-	void generate_new_stuff(unsigned _eaten, unsigned *empty_fields, const char to_fill_char);
+	void get_kingdoms_lands(int lands[NUM_PLAYERS]);
+	bool is_kingdom_alive(unsigned player) { return (kingdom[player].land > 0); }
+	string get_kingdom_details(unsigned player);
+	void set_debug(bool _debug) { debug = _debug; };
+
+private:
 	bool field_loaded;
 	bool _game_finished;
-    	unsigned current_round, total_rounds;
-	unsigned remaining_flowers;
-    	unsigned width, height;
-	unsigned targeted_flowers;
-	unsigned dead_worms;
+	bool debug;
+	unsigned current_round, total_rounds;
+	unsigned dead_kingdoms;
 	string filename;
-    	worm_info_t worms[NUM_PLAYERS];
-    	char* field;
+	kingdom_info_t kingdom[NUM_PLAYERS];/* improve skills and add people, earn food, prepare battles */
+	void write_playfield_to_disk(const char* mode);
+	void increase_current_round() {current_round++; if (current_round == total_rounds) { _game_finished = true;  }}
+	void update_last_moves(int player, char move);
 };
 
 #endif  /* !PLAYFIELD_H */

@@ -5,7 +5,7 @@
 	make
 
 (*) Typické spuštění serveru:
-	./redbot -f ${PWD}/playing_fields/city-plan_field.txt ${PWD}/random_strategy ${PWD}/random_strategy ${PWD}/random_strategy ${PWD}/random_strategy
+	./redbot -f default_playfield.txt strategie1/random.sh strategie2/random.sh strategie3/random.sh strategie4/random.sh
 
-(*) Jak přehrát hru:
-	./replay_game.sh ${PWD}/playing_fields/city-plan_field.txt 0.3
+(*) Zobrazení historie hry (jak se měnilo území jednotlivých království) - nutné mít nainstalován Gnuplot:
+	./historie_zapasu.sh <soubor_s_historii_hry>
