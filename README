@@ -1,11 +1,23 @@
 (*) RedBot pravidla:
-	viz RedBot_pravidla.txt
+viz http://red-bot.rhcloud.com/
 
-(*) Jak přeložit zdrojový kód serveru:
-	make
+(*) Software nutný pro překlad gui:
+gtk2-devel
+
+(*) Překlad
+Jak přeložit zdrojový kód serveru i gui:
+    make
+Jak přeložit zdrojový kód serveru:
+    make redbot
+Jak přeložit zdrojový kód gui:
+    make gui
 
 (*) Typické spuštění serveru:
-	./redbot -f default_playfield.txt strategie1/random.sh strategie2/random.sh strategie3/random.sh strategie4/random.sh
+    ./redbot -f${PWD}/random_strategy ${PWD}/random_strategy
+záznam o hře je uložen do defaultně do adresáře game. Při novém spuštění se tento záznam přepíše.
+Adresář kam se záznam uloží je také možné změnit přepínačem -b
+    ./redbot -f${PWD}/random_strategy ${PWD}/random_strategy -b my_dir
 
-(*) Zobrazení historie hry (jak se měnilo území jednotlivých království) - nutné mít nainstalován Gnuplot:
-	./historie_zapasu.sh <soubor_s_historii_hry>
+
+(*) Jak přehrát hru:
+    ./gui

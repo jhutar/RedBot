@@ -1,5 +1,5 @@
 /*
- * The part utilizing OptionParser was adopted under the 
+ * The part utilizing OptionParser was adopted under the
  * following licence:
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -9,9 +9,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -23,653 +23,504 @@
 
 #include "PlayField.h"
 #include <cstdlib>
-#include <iostream>
-#include <cstdio>
-#include <string>
-#include <string.h>
-#include <cmath>
-#include <list>
+#include <fstream>
 
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define FIELDCHAR_IS_EMPTY(ch) ((ch != FIELD_SHIP1) && (ch != FIELD_SHIP2))
 
 using namespace std;
 
-struct attack_t {
-	unsigned attacker;
-	unsigned soldiers;
-};
-
-string get_relative_attack_list(list<attack_t> *attackers, unsigned me)
+/* auxiliary function to convert unsigned to string */
+string unsigned_to_string(unsigned u)
 {
-	string attack_list = "";
-	char aux_ch[2];
-	list<attack_t>::iterator it;
-	for (it = attackers->begin(); it != attackers->end(); it++) {
-		sprintf(aux_ch, "%d,", (4 + it->attacker - me) % 4);
-		attack_list += aux_ch;
-	}
-	attack_list.erase(attack_list.size()-1);
-	return attack_list;
+  string s="";
+  if (u==0)
+    s="0";
+  while (u>0)
+  {
+    s = (char)(u%10+48) + s;
+    u /= 10;
+  }
+  return s;
 }
 
-
-PlayField::PlayField(const string _filename) : filename(_filename) {
-
-	debug=false;
-	field_loaded=false;
-	int i;
-	FILE *fd;
-
-	fd = fopen(filename.c_str(),"r");
-	if (!fd) {
-		fprintf(stderr, "Can not access file with starting situation: %s\n", filename.c_str());
-		return;
-	}
-
-	/* read current round number and total rounds */
-	fscanf(fd,"%u/%u:", &current_round, &total_rounds);
-
-	/* read data about kingdoms */
-	dead_kingdoms = 0;
-	for (i = 0; i < NUM_PLAYERS; i++ ) {
-		fscanf(fd," %u %u %u %u %u %u %u\n", &kingdom[i].land,
-			&kingdom[i].food, &kingdom[i].soldiers,
-			&kingdom[i].peasants, &kingdom[i].arms,
-			&kingdom[i].farming, &kingdom[i].secret_services);
-		if (kingdom[i].land == 0) {
-			dead_kingdoms++;
-		}
-	}
-
-	fclose(fd);
-
-	/* write snapshots of the game to file "filename + PLAY_SNAPSHOTS_FILE_SUFFIX" */
-	filename += PLAY_SNAPSHOTS_FILE_SUFFIX;
-	write_playfield_to_disk("w");
-
-	field_loaded=true;
-	_game_finished=((current_round >= total_rounds) ||
-		(dead_kingdoms == NUM_PLAYERS - 1));
-}
-
-
-PlayField::~PlayField() {
-}
-
-
-void PlayField::write_playfield_to_disk(const char* mode)
+PlayField::PlayField(string *bots_dir, string _battlefields_dir)
 {
-	int i;
-	FILE *fd;
+  unsigned i, j;
+  bool move_ok[NUM_PLAYERS]; // auxiliary here only
+  battlefields_dir = _battlefields_dir;
+  ofstream ofile;
+  string filename = BATTLEFIELD_FILENAME;
+  filename = battlefields_dir + "/" + filename + ".0";
 
-	fd = fopen(filename.c_str(), mode);
-	if (!fd) {
-		fprintf(stderr, "Can not access file with starting situation: %s\n", filename.c_str());
-		return;
-	}
+  current_round = 0;
+  /* setup some fleets stuff */
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    fleets[i].charges = MAX_CHARGES;
+    fleets[i].ship_fields_alive = 0;
+    fleets[i].points = 0;
+    fleets[i].bot_dir = bots_dir[i];
+    fleets[i].last_round = "";
+    for (j=0; j<SHIPS; j++)
+    {
+      fleets[i].ship_fields_alive += ships_x_size[j]*ships_y_size[j];
+    }
+  }
+  /* generate boats */
+  generate_battlefield();
 
-	/* write current round and total rounds */
-	fprintf(fd,"%u/%u:", current_round, total_rounds);
-
-	/* write data about kingdoms */
-	for (i = 0; i < NUM_PLAYERS; i++ ) {
-		fprintf(fd," %u %u %u %u %u %u %u", kingdom[i].land, kingdom[i].food,
-			kingdom[i].soldiers, kingdom[i].peasants, kingdom[i].arms,
-			kingdom[i].farming, kingdom[i].secret_services);
-	}
-	fprintf(fd,"\n");
-
-	fclose(fd);
+  /* write files - for both players and the overall battlefield */
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    print_battlefield_for_player(i);
+    move_ok[i] = true;
+  }
+  ofile.open(filename.c_str());
+  print_battlefield(ofile, move_ok);
+  ofile.close();
 }
 
-int PlayField::play_one_round(response_t* moves, string* bots_dir,
-	bool write_to_disk)
+PlayField::~PlayField()
 {
-	int left;
-	int i;
-
-	/* attack/defence/information/.. file descriptors per client */
-	FILE *fd_attack[NUM_PLAYERS];
-	FILE *fd_defence[NUM_PLAYERS];
-	FILE *fd_information[NUM_PLAYERS];
-	FILE *fd_robbery_attack[NUM_PLAYERS];
-	FILE *fd_robbery_defence[NUM_PLAYERS];
-
-	/* set of attackers to each kingdom - to avoid defining 
-	  comparator of attack_t, set type replaced by list */
-	list<attack_t> kingdom_attackers[NUM_PLAYERS];
-	list<int> kingdom_robbers[NUM_PLAYERS];
-	list<int> kingdom_act_information;
-
-	unsigned defender;
-	attack_t attack;
-	int done;
-
-	/* increment current round */
-	if (current_round >= total_rounds) {
-		fprintf(stderr,"Error: trying to play more rounds than maximum defined %d.", total_rounds);
-		return 1;
-	}
-
-	/* open files for wirting attacks and defences of kingdoms */
-	for (i = 0; i < NUM_PLAYERS; i++ ) {
-		string attack_filename = bots_dir[i] + KINGDOM_ATTACK_FILENAME;
-		string defence_filename = bots_dir[i] + KINGDOM_DEFENCE_FILENAME;
-		string information_filename = bots_dir[i] + KINGDOM_INFORMATION_FILENAME;
-		string robbery_attack_filename = bots_dir[i] + KINGDOM_ROBBERY_ATTACK_FILENAME;
-		string robbery_defence_filename = bots_dir[i] + KINGDOM_ROBBERY_DEFENCE_FILENAME;
-
-		fd_attack[i] = fopen(attack_filename.c_str(), "w");
-		if (fd_attack[i] == NULL)
-			return 1;
-
-		fd_defence[i] = fopen(defence_filename.c_str(), "w");
-		if (fd_defence[i] == NULL)
-			return 1;
-
-		fd_information[i] = fopen(information_filename.c_str(), "w");
-                if (fd_information[i] == NULL)
-                        return 1;
-		
-		fd_robbery_attack[i] = fopen(robbery_attack_filename.c_str(), "w");
-                if (fd_robbery_attack[i] == NULL)
-                        return 1;
-		fd_robbery_defence[i] = fopen(robbery_defence_filename.c_str(), "w");
-                if (fd_robbery_defence[i] == NULL)
-                        return 1;
-	}
-	if (debug)
-		cout << "	kroky    : ";
-
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		/* update last_moves - history of moves */
-		update_last_moves(i, moves[i][0]);
-		/* improve skills and add people, earn food, prepare battles */
-		done = 0;
-		switch (moves[i][0]) {
-			case ACTION_SOLDIER: {
-				kingdom[i].soldiers++;
-				if (debug)
-					cout << i << ":vojak       ";
-				done = 1;
-				break;
-			}
-			case ACTION_PEASANT: {
-				kingdom[i].peasants++;
-				if (debug)
-					cout << i << ":rolnik      ";
-				done = 1;
-				break;
-			}
-			case ACTION_ARMY: {
-				kingdom[i].arms++;
-				if (debug)
-					cout << i << ":zbrojeni    ";
-				done = 1;
-				break;
-			}
-			case ACTION_FARMING: {
-				kingdom[i].farming++;
-				if (debug)
-					cout << i << ":farmareni   ";
-				done = 1;
-				break;
-			}
-			case ACTION_HARVEST: {
-				kingdom[i].food += (FARMING_MULTIPLIER
-					* kingdom[i].peasants
-					* (1+floor(kingdom[i].farming/FARMING_LEVEL_UP)));
-				if (debug)
-					cout << i << ":sklizen     ";
-				done = 1;
-				break;
-			}
-			case ACTION_SECRETSERVICES: {
-				kingdom[i].secret_services++;
-				if (debug)
-					cout << i << ":tajneSluzby ";
-				done = 1;
-				break;
-			}
-                        case ACTION_ROBBERY: {
-				for (left=0;
-					((left<ROBBERY_ACT_REPEATED) && (kingdom[i].last_moves[left] == ACTION_ROBBERY));
-					left++);
-				if (left == ROBBERY_ACT_REPEATED) {
-					if (EOF == sscanf(moves[i], "l %u", &defender)) {
-						cout << "CHYBA: Kolo " << current_round
-							<< ": chybna syntaxe loupeze " << i
-							<< "teho hrace: \"" << moves[i] << "\"" << endl;
-					} else {
-						// shift defender as attacker (=i) thinks it has ID 0
-						defender = (defender + i) % 4;
-						kingdom_robbers[defender].push_back(i);
-						kingdom[i].last_moves[0] = ACTION_ROBBERY_DONE; // to reset past robberies
-					}
-				}
-				else {
-					sscanf(moves[i], "l %u", &defender); // to read defender, though irrelevant
-					defender = (defender + i) % 4;
-				}
-				if (debug)
-					cout << i << ":loupez u " << defender << "  ";
-				done = 1;
-				break;
-			}
-			case ACTION_INFORMATION: {
-				for (left=0;
-					((left<INFORMATION_ACT_REPEATED) && (kingdom[i].last_moves[left] == ACTION_INFORMATION)); 
-					left++);
-				if (left == INFORMATION_ACT_REPEATED) {
-					kingdom_act_information.push_back(i);
-					kingdom[i].last_moves[0] = ACTION_INFORMATION_DONE; // to reset past information/spy actions
-				}
-				if (debug)
-                            		cout << i << ":informace  ";
-                                done = 1;
-                                break;
-                        }
-			case '\0': { // no response provided => client timeouted
-				if (debug)
-                                        cout << i << ((is_kingdom_alive(i))?(":TIMEOUT    "):(":----       "));
-				done = 1;
-				break;
-			}
-		}
-		if (moves[i][0] == ACTION_ATTACK) {
-			done = 1;
-
-			attack.attacker = i;
-			// decode defender and # of attacking soldiers
-			if (EOF == sscanf(moves[i], "u %u %u", &defender, &attack.soldiers)) {
-				cout << "CHYBA: Kolo " << current_round
-					<< ": chybna syntaxe utoku " << i
-					<< "teho hrace: \"" << moves[i] << "\"" << endl;
-			} else {
-				// shift defender as attacker (=i) thinks it has ID 0
-				defender = (defender + i) % 4;
-
-				// check if the attacker has enough soldiers
-				if (attack.soldiers > kingdom[i].soldiers)
-					cout << "CHYBA:" << i << "ty hrac chce utocit s "
-						<< attack.soldiers << "vojaky ale ma jich jen "
-						<< kingdom[i].soldiers << "." << endl;
-				else {
-					/* decrement defending soldiers of attacker 
-					and add the attack for future evaluation */
-					kingdom[i].soldiers -= attack.soldiers;
-					kingdom_attackers[defender].push_back(attack);
-				}
-			}
-			if (debug)
-				cout << i << ": u na " << defender << " " << attack.soldiers << " vojaky    ";
-		}
-		if (done == 0) {
-			if (kingdom[i].land == 0) {
-				if (debug)
-					cout << i << ": ---         ";
-			}
-			else
-				if (debug)
-					cout << i << ": CHYBA neznama akce (" << moves[i] << ")   ";
-		}
-	}
-	if (debug)
-		cout << "\n";
-
-	/* evaluate fights */
-	int land_got[NUM_PLAYERS]; // track land won or lost by a player in battles; negative = loose, positive = win
-	unsigned defence;
-	unsigned sum_attack;
-	list<attack_t>::iterator it;
-	unsigned attacker_lost;
-	unsigned dlost_land, dlost_peasants, dlost_army;
-	float ratio;
-	string attack_list;
-	unsigned land_to_move, lost_land;
-
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		land_got[i] = 0;
-	}
-
-	for (i = 0; i < NUM_PLAYERS; i++)
-		if (!kingdom_attackers[i].empty()) {
-			if (debug)
-				cout << "	utok na  " << i << ": (utocnici:" ;
-			//somebody attacks to this kingdom
-			defence = (int) (DEFENCE_MULTIPLIER * kingdom[i].soldiers * 
-					(int)(kingdom[i].arms / ARMS_LEVEL_UP));
-
-			// compute strength of all attackerer
-			sum_attack = 0;
-			for (it = kingdom_attackers[i].begin();
-				it != kingdom_attackers[i].end();
-				it++) {
-					sum_attack += it->soldiers * (int)(kingdom[(it->attacker)].arms
-						/ ARMS_LEVEL_UP);
-					if (debug)
-						cout << it->attacker << " "; 
-			}
-			if (debug)
-				cout << ") (obranne cislo: "<< defence << ", utocne cislo: " << sum_attack << "), ";
-
-			if (sum_attack > defence) {
-				// attack i/s successfull
-				// how much land and potentially peasants the defender is loosing
-				dlost_land = MIN(sum_attack-defence, kingdom[i].land);
-				dlost_army = kingdom[i].soldiers;
-				dlost_peasants = MIN(sum_attack-defence, kingdom[i].peasants);
-
-
-				/* each attacker gets its relative portion 
-				of lost_land_f (relative to its attack strength) 
-				- rounded down for the sake of simplicity
-				also the attacker looses some soldiers */
-				lost_land = 0;
-				for (it = kingdom_attackers[i].begin();
-					it != kingdom_attackers[i].end(); it++) {
-
-					/* count ratio of attack power */
-					ratio = (float) (it->soldiers * (int)(kingdom[(it->attacker)].arms
-							/ ARMS_LEVEL_UP))/sum_attack;
-
-					/* move proportion of land */
-					land_to_move = (int) (dlost_land  * ratio);
-					land_got[i] -= land_to_move;
-					land_got[it->attacker] += land_to_move;
-					lost_land += land_to_move;
-
-					/* move proportion of attack army */
-					attacker_lost = (int) (defence *ratio /
-						(int) (kingdom[(it->attacker)].arms / ARMS_LEVEL_UP));
-					it->soldiers -= attacker_lost;
-					attack_list = get_relative_attack_list(&(kingdom_attackers[i]), it->attacker);
-
-					if (debug)
-						cout << " " << it->attacker << ": zisk(zeme:" << (int) (dlost_land  * ratio) 
-							<< ", armada:-" << attacker_lost << ") ";
-
-					/* edit attackers log file */
-					fprintf(fd_attack[it->attacker],
-						"cil=%d\nutocnici=%s\n"\
-						"ztraty_ja_vojaci=%d\nztraty_cile_vojaci=%d\n"\
-						"ztraty_cile_rolnici=%d\nzisk_ja_uzemi=%d\n",
-						(4 + i - it->attacker) % 4, attack_list.c_str(),
-						attacker_lost, kingdom[i].soldiers,
-						dlost_peasants, land_to_move);
-				}
-				if (debug) {
-					cout << "obrance: ztraty(zeme:" << dlost_land
-						<< ", armada:" << dlost_army
-						<< ", rolnici:" << dlost_peasants << ")"<< endl;
-				}
-				kingdom[i].peasants -= dlost_peasants;
-
-				// kill all defending soldiers and also peasants, write to defender's output file
-				string attack_list = get_relative_attack_list(&(kingdom_attackers[i]), i);
-				fprintf(fd_defence[i],
-					"utocnici=%s\nztraty_utoku_vojaci=%d\n"\
-					"ztraty_ja_vojaci=%d\nztraty_ja_rolnici=%d\n"\
-					"ztraty_ja_uzemi=%d\n",
-					attack_list.c_str(), attacker_lost,
-					kingdom[i].soldiers, dlost_peasants, lost_land);
-				kingdom[i].soldiers = 0;
-			} else { // attack is not successfull
-
-				if (defence == 0) {
-					dlost_army = 0;
-				} else {
-					dlost_army = (sum_attack * kingdom[i].soldiers)/ defence;
-				}
-				attacker_lost = 0;
-				for (it = kingdom_attackers[i].begin();
-					it != kingdom_attackers[i].end(); it++) {
-
-					attacker_lost += it->soldiers;
-					attack_list = get_relative_attack_list(&(kingdom_attackers[i]), it->attacker);
-					if (debug)
-						cout << " " << it->attacker << ": zisk(zeme:0 , armada:-" << it->soldiers << " ) ";
-
-					fprintf(fd_attack[it->attacker],
-						"cil=%d\nutocnici=%s\n"\
-						"ztraty_ja_vojaci=%d\nztraty_cile_vojaci=%d\n"\
-						"ztraty_cile_rolnici=%d\nzisk_ja_uzemi=%d\n",
-						(4 + i - it->attacker) % 4, attack_list.c_str(),
-						it->soldiers, dlost_army, 0, 0);
-					it->soldiers = 0;
-				}
-
-				// kill relative portion of defending soldiers
-				attack_list = get_relative_attack_list(&(kingdom_attackers[i]), i);
-				kingdom[i].soldiers -= dlost_army;
-
-				if (debug)
-					cout << "obrance: ztraty(zeme: 0, armada:"
-						<< dlost_army << ", rolnici:0 )"<< endl;
-
-				fprintf(fd_defence[i],
-					"utocnici=%s\nztraty_utoku_vojaci=%d\n"\
-					"ztraty_ja_vojaci=%d\nztraty_ja_rolnici=%d\n"\
-					"ztraty_ja_uzemi=%d\n",
-					attack_list.c_str(), attacker_lost,
-					dlost_army, 0, 0);
-		}
-	}
-
-	/* evaluate robberies */
-	list<int>::iterator iter;
-        unsigned arms_robbery_gain[NUM_PLAYERS];
-        unsigned arms_robbery_loose[NUM_PLAYERS];
-	unsigned arms_robbery;
-        unsigned farming_robbery_gain[NUM_PLAYERS];
-        unsigned farming_robbery_loose[NUM_PLAYERS];
-	unsigned farming_robbery;
-	string robbery_attackers[NUM_PLAYERS];
-
-
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		arms_robbery_gain[i]=0;
-		arms_robbery_loose[i]=0;
-		farming_robbery_gain[i]=0;
-		farming_robbery_loose[i]=0;
-		robbery_attackers[i]="";
-	}
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		for (iter = kingdom_robbers[i].begin();
-			iter != kingdom_robbers[i].end();
-			iter++)
-		{
-			fprintf(fd_robbery_attack[*iter], "cil=%d\n", i);
-			robbery_attackers[i] = robbery_attackers[i] + (char)((*iter)+48) + ",";
-			if (debug)
-				cout << "        loupez u " << i << ": (utocnici:" << *iter <<" ) ";
-			/* evaluate robbery of arms */
-			if (kingdom[i].arms > kingdom[*iter].arms)
-			{
-				arms_robbery = MIN(kingdom[i].arms,2);
-				arms_robbery_loose[i] += arms_robbery;
-				arms_robbery_gain[*iter] += arms_robbery;
-				fprintf(fd_robbery_attack[*iter], "zisk_ja_zbrojeni=%d\nztraty_cile_zbrojeni=%d\n", arms_robbery, arms_robbery);
-				if (debug)
-					cout << "utocnik: zisk(vs:" << arms_robbery;
-			}
-			else
-			{
-				arms_robbery = MIN(kingdom[i].arms,1);
-				arms_robbery_loose[i] += arms_robbery;
-				fprintf(fd_robbery_attack[*iter], "zisk_ja_zbrojeni=0\nztraty_cile_zbrojeni=%d\n", arms_robbery);
-				if (debug)
-					cout << "utocnik: zisk(vs:0";
-			}
-
-			/* evaluate robbery of farming tech */
-			if (kingdom[i].farming > kingdom[*iter].farming) {
-				farming_robbery = MIN(kingdom[i].farming,2);
-	                        farming_robbery_loose[i] += farming_robbery;
-                                farming_robbery_gain[*iter] += farming_robbery;
-				fprintf(fd_robbery_attack[*iter], "zisk_ja_farmareni=%d\nztraty_cile_farmareni=%d\n", farming_robbery, farming_robbery);
-				if (debug)
-					cout << ", fs:" << farming_robbery;
-                        } else {
-				farming_robbery = MIN(kingdom[i].farming,1);
-                                farming_robbery_loose[i] += farming_robbery;
-				fprintf(fd_robbery_attack[*iter], "zisk_ja_farmareni_ukradeno=0\nztraty_cile_farmareni=%d\n", farming_robbery);
-				if (debug)
-					cout << ", fs:0";
-                        }
-			/* rest print out */
-			if (debug) {
-				cout << ") obrance: ztrata(vs:" << arms_robbery << ", fs:" << farming_robbery << ")" << endl;
-			}
-		}
-	}
-
-	/* update skills and write to loupez_obrana.txt files */
-	for (i = 0; i < NUM_PLAYERS; i++)
-	{
-		if (robbery_attackers[i].length() > 0)
-		{
-			robbery_attackers[i].erase(robbery_attackers[i].length()-1);
-			fprintf(fd_robbery_defence[i], 
-				"utocnici=%s\nztraty_ja_zbrojeni=%d\nztraty_ja_farmareni=%d\n", 
-				robbery_attackers[i].c_str(), MIN(kingdom[i].arms,arms_robbery_loose[i]), 
-				MIN(kingdom[i].farming,farming_robbery_loose[i]));
-		}
-		kingdom[i].arms = kingdom[i].arms + arms_robbery_gain[i] - MIN(kingdom[i].arms,arms_robbery_loose[i]);
-		kingdom[i].farming = kingdom[i].farming + farming_robbery_gain[i] - MIN(kingdom[i].farming,farming_robbery_loose[i]);
-	}
-
-	/* evaluate information / spying */
-	for (iter=kingdom_act_information.begin();
-		iter != kingdom_act_information.end();
-		iter++)
-	{
-		for (i = 1; i < NUM_PLAYERS; i++)
-			if (kingdom[((*iter)+i)%NUM_PLAYERS].secret_services < kingdom[*iter].secret_services)
-			{
-				string kingdom_details = get_kingdom_details(((*iter)+i)%NUM_PLAYERS);
-				fprintf(fd_information[*iter],"%d: %s\n", i, kingdom_details.c_str());
-				if (debug)
-					cout << "       kralovstvi " << *iter
-						<< " ziskalo informace o stavu kralovstvi "
-						<< ((*iter)+i)%NUM_PLAYERS << endl;
-			}
-	}
-
-	/* update kingdoms' land, re-calculate dead_kingdoms */
-	dead_kingdoms = 0;
-	for (i = 0; i < NUM_PLAYERS; i++) {
-	kingdom[i].land += land_got[i];
-		if (kingdom[i].land == 0) {
-			dead_kingdoms++;
-			if ((kingdom[i].arms+kingdom[i].farming+kingdom[i].secret_services) != 0) {
-				if (debug) {
-					cout << "		KRALOVSTVI " << i << " ZANIKLO" << endl;
-				}
-				kingdom[i].soldiers = 0;
-				kingdom[i].arms = 0;
-				kingdom[i].peasants = 0;
-				kingdom[i].farming = 0;
-				kingdom[i].food = 0;
-				kingdom[i].secret_services = 0;
-			}
-		}
-	}
-
-	/* move soldiers back from battles */
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		for (it = kingdom_attackers[i].begin(); it != kingdom_attackers[i].end(); it++)
-			kingdom[it->attacker].soldiers += it->soldiers;
-	}
-
-	/* feed soldiers and peasants */
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		// first feed peasants
-		if (kingdom[i].food >= kingdom[i].peasants)
-			kingdom[i].food -= kingdom[i].peasants;
-		else {
-			left = kingdom[i].peasants - kingdom[i].food;
-			kingdom[i].peasants -= left;
-			kingdom[i].food = 0;
-			if (debug) {
-				cout << "	ztraty:   kralovstvi " << i << "nema dost potravy, "
-					<< left << " rolniku umrelo" << endl;
-			}
-		}
-		// then feed soldiers
-		if (kingdom[i].food >= kingdom[i].soldiers) {
-			kingdom[i].food -= kingdom[i].soldiers;
-		} else {
-			left = kingdom[i].soldiers - kingdom[i].food;
-			kingdom[i].soldiers -= left;
-			kingdom[i].food = 0;
-			if (debug) {
-				cout << "	ztraty:   kralovstvi " << i << "nema dost potravy, "
-					<< left << " vojaku umrelo" << endl;
-			}
-		}
-	}
-
-	for (i = 0; i < NUM_PLAYERS; i++ ) {
-		fclose(fd_attack[i]);
-		fclose(fd_defence[i]);
-        	fclose(fd_information[i]);
-        	fclose(fd_robbery_attack[i]);
-        	fclose(fd_robbery_defence[i]);
-	}
-
-	if (debug) {
-		for (i = 0; i < NUM_PLAYERS; i++ ) {
-			if (kingdom[i].land != 0){
-				/* live */
-				cout << "	po akci  : " << i << ": uzemi:" << kingdom[i].land
-					<< ", zasoby:" << kingdom[i].food
-					<< ", vojaci:" << kingdom[i].soldiers << ", rolnici:" 
-					<< kingdom[i].peasants << ", zbrojeni:" << kingdom[i].arms 
-					<< ", farmareni:" << kingdom[i].farming << ", tajne sluzby:"
-					<< kingdom[i].secret_services << endl;
-			} else {
-				/* dead */
-				cout << "	po akci  : ----" << endl;
-			}
-		}
-	}
-
-    /* update whether the game hasn't just finished */
-    increase_current_round();
-    _game_finished=((current_round >= total_rounds) || (dead_kingdoms == NUM_PLAYERS - 1));
-
-    /* write to disk the new playfield */
-    if (write_to_disk)
-	write_playfield_to_disk("a");
-    return 0;
+  unsigned x;
+  if (battlefield)
+  {
+    for (x=0; x<BATTLEFIELD_SIZE; x++)
+    {
+      delete[] battlefield[x];
+    }
+    delete[] battlefield;
+  }
 }
 
-void PlayField::get_kingdoms_lands(int lands[])
+bool PlayField::is_fleet_alive(unsigned player)
 {
-	unsigned i;
-
-	for (i = 0; i < NUM_PLAYERS; i++) {
-		lands[i] = kingdom[i].land;
-	}
+  return (fleets[player].ship_fields_alive > 0);
 }
 
-string PlayField::get_kingdom_details(unsigned player)
+void PlayField::increase_current_round()
 {
-	char buf[100];
-
-	sprintf (buf,"%u %u %u %u %u %u %u", kingdom[player].land,
-		kingdom[player].soldiers, kingdom[player].peasants,
-		kingdom[player].arms, kingdom[player].farming,
-		kingdom[player].food, kingdom[player].secret_services);
-	return (string)buf;
+  current_round++;
+  if (current_round == MAX_ROUNDS)
+  {
+    _game_finished = true;
+  }
 }
 
-void PlayField::update_last_moves(int player, char move)
+char PlayField::missile_to_field(unsigned player, int x, int y)
 {
-	for (unsigned position=MAX_ACT_HISTORY-1; position > 0; position--)
-		kingdom[player].last_moves[position]=kingdom[player].last_moves[position-1];
-	kingdom[player].last_moves[0]=move;
+  char hit = battlefield[x][y];
+  fleets[player].last_round += (string)" " + unsigned_to_string((unsigned)x) +
+                               "," + unsigned_to_string((unsigned)y) + "(" +
+                               hit + ")";
+  switch (battlefield[x][y])
+  {
+    case FIELD_EMPTY:
+    {
+      battlefield[x][y] = FIELD_EMPTY_HIT;
+      break;
+    }
+    case FIELD_SHIP1:
+    case FIELD_SHIP2:
+    {
+      fleets[50-battlefield[x][y]].points++;
+      fleets[battlefield[x][y]-49].ship_fields_alive--;
+      battlefield[x][y] = (battlefield[x][y]==FIELD_SHIP1)?(FIELD_SHIP1_HIT):(FIELD_SHIP2_HIT);
+      break;
+    }
+  }
+  return hit;
+}
+
+void PlayField::fire_bomb(unsigned player, int x, int y)
+{
+  fleets[player].charges--;
+  missile_to_field(player, x, y);
+  if (x<BATTLEFIELD_SIZE-1)
+  {
+    missile_to_field(player, x+1, y);
+  }
+  if (y<BATTLEFIELD_SIZE-1)
+  {
+    missile_to_field(player, x, y+1);
+  }
+  if ((x<BATTLEFIELD_SIZE-1) && (y<BATTLEFIELD_SIZE-1))
+  {
+    missile_to_field(player, x+1, y+1);
+  }
+}
+
+void PlayField::fire_torpedo(unsigned player, int x, int y, int x_diff, int y_diff)
+{
+  char hit = FIELD_EMPTY;
+  fleets[player].charges--;
+  x += x_diff;
+  y += y_diff;
+  while (FIELDCHAR_IS_EMPTY(hit) &&
+        (x>=0) && (x<BATTLEFIELD_SIZE) && (y>=0) && (y<BATTLEFIELD_SIZE))
+  {
+    hit = missile_to_field(player, x, y);
+    x += x_diff;
+    y += y_diff;
+  }
+}
+
+void PlayField::fire_fireworks(unsigned player, int x, int y)
+{
+  bool fireworks_hit[16];
+  unsigned i, hits;
+  int xx, yy;
+  fleets[player].charges--;
+  missile_to_field(player, x, y);
+
+  /* generate FIREWORKS_HITS random numbers from range 0..15 */
+  for (i=0; i<16; i++)
+  {
+    fireworks_hit[i] = false;
+  }
+  i=0;
+  for (hits=0; hits<FIREWORKS_HITS; hits++)
+  {
+    do
+    {
+      i = (i+(rand()%16)) % 16;
+    }
+    while (fireworks_hit[i]);
+    fireworks_hit[i]=true;
+  }
+
+  /* fire to the randomly generated fields */
+  for (i=0; i<16; i++)
+  {
+    if (fireworks_hit[i])
+    {
+      xx = x + fireworks_pos_x[i];
+      yy = y + fireworks_pos_y[i];
+      if ((xx>=0) && (xx<BATTLEFIELD_SIZE) && (yy>=0) && (yy<BATTLEFIELD_SIZE))
+      {
+        missile_to_field(player, xx, yy);
+      }
+    }
+  }
+}
+
+
+void PlayField::play_one_round(response_t* moves)
+{
+  int i, x, y, x_diff, y_diff;
+  char order, direction;
+  ofstream ofile;
+  bool move_ok[NUM_PLAYERS];
+  string filename = BATTLEFIELD_FILENAME;
+
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    fleets[i].last_round = (string)"\"" + moves[i];
+    fleets[i].last_round += "\", hit:";
+    move_ok[i] = (EOF != sscanf(moves[i], "%c %u %u", &order, &x, &y));
+    move_ok[i] &= ((x >= 0) && (x < BATTLEFIELD_SIZE) 
+               && (y >= 0) && (y < BATTLEFIELD_SIZE));
+    if (move_ok[i])
+    {
+      switch (order)
+      {
+        case FIRE_MISSILE:
+        {
+          missile_to_field(i,x,y);
+          break;
+        }
+        case FIRE_BOMB:
+        {
+          move_ok[i] = (fleets[i].charges > 0);
+          if (move_ok[i])
+          {
+            fire_bomb(i, x, y);
+          }
+          break;
+        }
+        case FIRE_TORPEDO:
+        {
+          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x][y] == (i+49))
+                     && (EOF != sscanf(moves[i], "%c %u %u %c", &order, &x, &y,
+                                                                &direction)));
+          if (move_ok[i])
+          {
+            x_diff=0; y_diff=0;
+            switch (direction)
+            {
+              case DIRECTION_UP:
+              {
+                y_diff = -1;
+                break;
+              }
+              case DIRECTION_RIGHT:
+              {
+                x_diff = 1;
+                break;
+              }
+              case DIRECTION_DOWN:
+              {
+                y_diff = 1;
+                break;
+              }
+              case DIRECTION_LEFT:
+              {
+                x_diff = -1;
+                break;
+              }
+              default:
+              {
+                move_ok[i] = false;
+                break;
+              }
+            } /* end of "switch (direction)" */
+          }
+          if (move_ok[i])
+          {
+            fire_torpedo(i, x, y, x_diff, y_diff);
+          }
+          break;
+        }
+        case FIRE_FIREWORKS:
+        {
+          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x][y] == (i+49)));
+          if (move_ok[i])
+          {
+            fire_fireworks(i, x, y);
+          }
+          break;
+        }
+        default:
+        {
+          move_ok[i] = false;
+          break;
+        }
+      } /* end of switch */
+    }
+    if (!move_ok[i])
+    {
+      cout << "Chybna odpoved " << (i+1) << "-teho hrace: \"" << moves[i] << "\"" << endl;
+    }
+  } /* end of for cycle */
+
+  increase_current_round();
+  filename = battlefields_dir + "/" + filename + "." + unsigned_to_string(current_round);
+  ofile.open(filename.c_str());
+  print_battlefield(ofile, move_ok);
+  ofile.close();
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    print_battlefield_for_player(i);
+  }
+}
+
+/* classic backtracking algorithm used: try to randomly put one boat after
+ * another until there is a conflict (then remove latest boat) or all boats
+ * are put
+ */
+bool PlayField::try_to_place_one_boat(unsigned boat)
+{
+  bool boat_put;
+  int start_x, start_y, x_size, y_size, x, y;
+  for (unsigned attempt=0; attempt<100; attempt++)
+  {
+    if (rand()%2==0)
+    {
+      x_size=ships_x_size[boat%SHIPS];
+      y_size=ships_y_size[boat%SHIPS];
+    }
+    else
+    {
+      x_size=ships_y_size[boat%SHIPS];
+      y_size=ships_x_size[boat%SHIPS];
+    }
+    start_x = rand()%(BATTLEFIELD_SIZE-x_size+1);
+    start_y = rand()%(BATTLEFIELD_SIZE-y_size+1);
+    boat_put=true; //until we find a conflict
+    //check the boat itself
+    for (x=0; x<x_size; x++)
+    {
+      for (y=0; y<y_size; y++)
+      {
+        boat_put&=(battlefield[start_x+x][start_y+y] == ' ');
+      }
+    }
+    //check above the boat
+    if (start_y>0)
+    {
+      for (x=MAX(start_x-1,0); x<MIN(start_x+x_size+1,BATTLEFIELD_SIZE); x++)
+      {
+        boat_put&=(battlefield[x][start_y-1] == ' ');
+      }
+    }
+    //check right from the boat
+    if (start_x+x_size<BATTLEFIELD_SIZE)
+    {
+      for (y=MAX(start_y-1,0); y<MIN(start_y+y_size+1,BATTLEFIELD_SIZE); y++)
+      {
+        boat_put&=(battlefield[start_x+x_size][y] == ' ');
+      }
+    }
+    //check below the boat
+    if (start_y+y_size<BATTLEFIELD_SIZE)
+    {
+      for (x=MAX(start_x-1,0); x<MIN(start_x+x_size+1,BATTLEFIELD_SIZE); x++)
+      {
+        boat_put&=(battlefield[x][start_y+y_size] == ' ');
+      }
+    }
+    //check left from the boat
+    if (start_x>0)
+    {
+      for (y=MAX(start_y-1,0); y<MIN(start_y+y_size+1,BATTLEFIELD_SIZE); y++)
+      {
+        boat_put&=(battlefield[start_x-1][y] == ' ');
+      }
+    }
+
+    if (boat_put)
+    {
+      //really place the boat
+      for (x=0; x<x_size; x++)
+      {
+        for (y=0; y<y_size; y++)
+        {
+          battlefield[start_x+x][start_y+y] = (boat/SHIPS) + 49;
+        }
+      }
+      if (boat == SHIPS*NUM_PLAYERS - 1)
+      {
+        return true;
+      }
+      else
+      {
+        if (try_to_place_one_boat(boat+1))
+        {
+          return true;
+        }
+        else /* remove the boat, can't be placed */
+        {
+          for (x=0; x<x_size; x++)
+          {
+            for (y=0; y<y_size; y++)
+            {
+              battlefield[start_x+x][start_y+y] = ' ';
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+void PlayField::generate_battlefield()
+{
+  unsigned x,y;
+  battlefield = new char*[BATTLEFIELD_SIZE];
+  for (x=0; x<BATTLEFIELD_SIZE; x++)
+  {
+    battlefield[x] = new char[BATTLEFIELD_SIZE];
+    for (y=0; y<BATTLEFIELD_SIZE; y++)
+      battlefield[x][y] = ' ';
+  }
+  /* start backtracking */
+  playfield_generated = try_to_place_one_boat(0);
+}
+
+void PlayField::print_battlefield_for_player(unsigned player)
+{
+  unsigned x,y;
+  FILE *fd;
+  string filename = fleets[player].bot_dir + BATTLEFIELD_FILENAME;
+  fd = fopen(filename.c_str(),"w");
+  fprintf(fd, "%d %d %d\n", player+1, MAX_ROUNDS-current_round, fleets[player].charges);
+  for (y=0; y<BATTLEFIELD_SIZE; y++)
+  {
+    for (x=0; x<BATTLEFIELD_SIZE; x++)
+    {
+      switch (battlefield[x][y])
+      {
+        case FIELD_EMPTY:
+        case FIELD_EMPTY_HIT:
+        {
+          fprintf(fd, "%c", battlefield[x][y]);
+          break;
+        }
+        case FIELD_SHIP1_HIT:
+        {
+          fprintf(fd, "%c", (player==0)?(FIELD_MY_SHIP_HIT):(FIELD_HIS_SHIP_HIT));
+          break;
+        }
+        case FIELD_SHIP2_HIT:
+        {
+          fprintf(fd, "%c", (player==1)?(FIELD_MY_SHIP_HIT):(FIELD_HIS_SHIP_HIT));
+          break;
+        }
+        default: /* not hit boat (i.e. FIELD_SHIP1 or FIELD_SHIP2), here we assumes FIELD_SHIP1 = '1' etc. */
+        {
+          fprintf(fd, "%c", (battlefield[x][y]==((char)(49 + player)))?(FIELD_MY_SHIP):(FIELD_EMPTY));
+          break;
+        }
+      }
+    }
+    fprintf(fd, "\n");
+  }
+  fclose(fd);
+}
+
+void print_top_line(ostream &out)
+{
+  unsigned x;
+  out << '+';
+  for (x=1; x<BATTLEFIELD_SIZE+1; x++)
+  {
+    out << "-";
+  }
+  out << '+';
+  out << endl;
+}
+
+void PlayField::print_battlefield(ostream &out, bool *move_ok)
+{
+  unsigned x,y;
+  out << "remaining rounds: " << MAX_ROUNDS-current_round << endl;
+  out << "points:";
+  for (x=0; x<NUM_PLAYERS; x++)
+  {
+    out << ' ' << fleets[x].points;
+  }
+  out << endl << "charges:";
+  for (x=0; x<NUM_PLAYERS; x++)
+  {
+    out << ' ' << fleets[x].charges;
+  }
+  out << endl;
+  print_top_line(out);
+  for (y=0; y<BATTLEFIELD_SIZE; y++)
+  {
+    out << "|";
+    for (x=0; x<BATTLEFIELD_SIZE; x++)
+      out << battlefield[x][y];
+    out << "|" << endl;
+  }
+  print_top_line(out);
+  for (x=0; x<NUM_PLAYERS; x++)
+  {
+    out << "Player " << x+1 << "("
+        << fleets[x].bot_dir.substr(0, fleets[x].bot_dir.size()-1)
+        << "): last command: " << fleets[x].last_round
+        << ((move_ok[x])?(""):(" (INVALID)")) << endl;
+  }
+}
+
+void PlayField::get_points(unsigned points[])
+{
+  unsigned i;
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    points[i] = fleets[i].points;
+  }
 }
