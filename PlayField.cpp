@@ -49,6 +49,7 @@ PlayField::PlayField(string *bots_dir, string _battlefields_dir)
 {
   unsigned i, j;
   bool move_ok[NUM_PLAYERS]; // auxiliary here only
+  _game_finished = false;
   battlefields_dir = _battlefields_dir;
   ofstream ofile;
   string filename = BATTLEFIELD_FILENAME;
@@ -103,7 +104,7 @@ bool PlayField::is_fleet_alive(unsigned player)
 void PlayField::increase_current_round()
 {
   current_round++;
-  if (current_round == MAX_ROUNDS)
+  if ((current_round == MAX_ROUNDS) || (!(is_fleet_alive(0))) || (!(is_fleet_alive(1))))
   {
     _game_finished = true;
   }
