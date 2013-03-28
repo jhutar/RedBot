@@ -210,8 +210,8 @@ void PlayField::fire_fireworks(unsigned player, int x, int y)
 
 void PlayField::play_one_round(response_t* moves)
 {
-  int i, x, y, x_diff, y_diff;
-  char order, direction;
+  int i, x[NUM_PLAYERS], y[NUM_PLAYERS], x_diff[NUM_PLAYERS], y_diff[NUM_PLAYERS];
+  char order[NUM_PLAYERS], direction[NUM_PLAYERS];
   ofstream ofile;
   bool move_ok[NUM_PLAYERS];
   string filename = BATTLEFIELD_FILENAME;
@@ -220,55 +220,48 @@ void PlayField::play_one_round(response_t* moves)
   {
     fleets[i].last_round = (string)"\"" + moves[i];
     fleets[i].last_round += "\", hit:";
-    move_ok[i] = (EOF != sscanf(moves[i], "%c %u %u", &order, &x, &y));
-    move_ok[i] &= ((x >= 0) && (x < BATTLEFIELD_SIZE) 
-               && (y >= 0) && (y < BATTLEFIELD_SIZE));
+    move_ok[i] = (EOF != sscanf(moves[i], "%c %u %u", &order[i], &x[i], &y[i]));
+    move_ok[i] &= ((x[i] >= 0) && (x[i] < BATTLEFIELD_SIZE) 
+               && (y[i] >= 0) && (y[i] < BATTLEFIELD_SIZE));
     if (move_ok[i])
     {
-      switch (order)
+      switch (order[i])
       {
-        case FIRE_MISSILE:
-        {
-          missile_to_field(i,x,y);
-          break;
-        }
-        case FIRE_BOMB:
-        {
-          move_ok[i] = (fleets[i].charges > 0);
+	case FIRE_MISSILE:
+	  break;
+	case FIRE_BOMB:
+	{
+	  move_ok[i] = (fleets[i].charges > 0);
+	  break;
+	}
+	case FIRE_TORPEDO:
+	{
+          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x[i]][y[i]] == (i+49))
+                     && (EOF != sscanf(moves[i], "%c %u %u %c", &order[i], &x[i], &y[i],
+                                                                &direction[i])));
           if (move_ok[i])
           {
-            fire_bomb(i, x, y);
-          }
-          break;
-        }
-        case FIRE_TORPEDO:
-        {
-          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x][y] == (i+49))
-                     && (EOF != sscanf(moves[i], "%c %u %u %c", &order, &x, &y,
-                                                                &direction)));
-          if (move_ok[i])
-          {
-            x_diff=0; y_diff=0;
-            switch (direction)
+            x_diff[i]=0; y_diff[i]=0;
+            switch (direction[i])
             {
               case DIRECTION_UP:
               {
-                y_diff = -1;
+                y_diff[i] = -1;
                 break;
               }
               case DIRECTION_RIGHT:
               {
-                x_diff = 1;
+                x_diff[i] = 1;
                 break;
               }
               case DIRECTION_DOWN:
               {
-                y_diff = 1;
+                y_diff[i] = 1;
                 break;
               }
               case DIRECTION_LEFT:
               {
-                x_diff = -1;
+                x_diff[i] = -1;
                 break;
               }
               default:
@@ -278,31 +271,53 @@ void PlayField::play_one_round(response_t* moves)
               }
             } /* end of "switch (direction)" */
           }
-          if (move_ok[i])
-          {
-            fire_torpedo(i, x, y, x_diff, y_diff);
-          }
-          break;
+	  break;
         }
         case FIRE_FIREWORKS:
-        {
-          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x][y] == (i+49)));
-          if (move_ok[i])
-          {
-            fire_fireworks(i, x, y);
-          }
-          break;
-        }
+	{
+          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x[i]][y[i]] == (i+49)));
+	  break;
+	}
         default:
         {
           move_ok[i] = false;
           break;
         }
-      } /* end of switch */
-    }
+      } // end of "switch (order)"
+    } // end of "if (move_ok[i])"
     if (!move_ok[i])
     {
       cout << "Chybna odpoved " << (i+1) << "-teho hrace: \"" << moves[i] << "\"" << endl;
+    }
+  } // end of "for (i=0; i<NUM_PLAYERS; i++)"
+
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    if (move_ok[i])
+    {
+      switch (order[i])
+      {
+        case FIRE_MISSILE:
+        {
+          missile_to_field(i,x[i],y[i]);
+          break;
+        }
+        case FIRE_BOMB:
+        {
+          fire_bomb(i, x[i], y[i]);
+          break;
+        }
+        case FIRE_TORPEDO:
+        {
+          fire_torpedo(i, x[i], y[i], x_diff[i], y_diff[i]);
+          break;
+        }
+        case FIRE_FIREWORKS:
+        {
+          fire_fireworks(i, x[i], y[i]);
+          break;
+        }
+      } /* end of switch */
     }
   } /* end of for cycle */
 
