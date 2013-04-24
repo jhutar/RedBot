@@ -27,6 +27,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <iostream>
+#include <fstream>
 
 #include "OptionParser.h"
 #include "PlayField.h"
@@ -137,6 +139,7 @@ int main(int argc, char **argv)
   bool all_responded;
   string sudo_kill;
   unsigned points[NUM_PLAYERS];
+  unsigned random_seed = time(NULL);
 
   int i;
   char *c;
@@ -225,7 +228,25 @@ int main(int argc, char **argv)
   }
 
   /* load playing field */
-  srand (time(NULL));
+  // generate some really random seed for srand
+  std::ifstream file ("/dev/urandom", std::ios::binary);
+  if (file.is_open())
+  {
+    char * memblock;
+    int size = sizeof(int);
+    memblock = new char [size];
+    file.read (memblock, size);
+    file.close();
+    random_seed = *reinterpret_cast<int*>(memblock);
+    delete[] memblock;
+  }
+  else
+  {
+    cerr << "Nepodarilo se otevrit soubor /dev/urandom pro generovani nahodnych cisel!" << endl;
+    return EXIT_FAILURE;
+  }
+
+  srand (random_seed);
   PlayField playfield(bots_dir, options.battlefields_dir);
   if (!(playfield.is_playfield_generated()))
   {
