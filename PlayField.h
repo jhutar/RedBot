@@ -1,100 +1,102 @@
 #ifndef PLAYFIELD_H
 #define PLAYFIELD_H
 
-#include <iostream>
+#include <string>
+#include <climits>
 
-#define NUM_PLAYERS			2
-#define ONE_ROUND_DELAY			2000		/* in milliseconds */
-#define CHECK_BOTS_INTERVAL		10		/* in milliseconds */
+#define NUM_PLAYERS		2
+#define RACKETS_PER_PLAYER	2
+#define ONE_ROUND_DELAY		3000	/* maximalni delka jednoho kola v milisekundach*/
+#define CHECK_BOTS_INTERVAL	100	/* v milisekundach */
+#define FIELD_DEFAULT_FILENAME	"playfield.txt"
+#define RESPONSE_LENGTH		256
 
-#define BATTLEFIELD_SIZE		14
-#define MAX_CHARGES			10
-#define MAX_ROUNDS			150
-#define FIREWORKS_HITS                   8
+const char FIELD_EMPTY = ' ';
+const char FIELD_ASTEROID = '0';	/* plus jeho vaha (1 az RACKETS_PER_PLAYER)*/
+
+const char AUX_FIELD_WALL = '#';	/* pomocne pro aux_defend_field */
+
+const char LEFT_MOVE_CHARACTER = 'L';	/* vLevo */
+const char RIGHT_MOVE_CHARACTER = 'P';	/* vPravo */
+const char UP_MOVE_CHARACTER = 'N';	/* Nahoru */
+const char DOWN_MOVE_CHARACTER = 'D';	/* Dolu */
+
+const char MOVE_ACTION = 'L';		/* "L D" (let dolu) */
+const char PULL_ACTION = 'T';		/* "T L" (tahni asteroid vlevo) */
+const char SHOT_ACTION = 'S';		/* "S L" (strilej vlevo) */
+const char DEFEND_ACTION = 'B';		/* "B" (bran se) */
+const char MOVES_DELIMETER = ':';
+const char ERROR_ROBOT_MOVE = 'E';
 
 using namespace std;
 
-const char FIELD_EMPTY     = ' ';
-const char FIELD_SHIP1     = '1';
-const char FIELD_SHIP2     = '2';
-const char FIELD_SHIP1_HIT = '*';
-const char FIELD_SHIP2_HIT = '+';
-const char FIELD_EMPTY_HIT = '.';
+typedef char response_t[RESPONSE_LENGTH];
 
-const char FIELD_MY_SHIP = '1';
-const char FIELD_MY_SHIP_HIT = '*';
-const char FIELD_HIS_SHIP_HIT = '+';
-
-const char FIRE_MISSILE   = 'm';
-const char FIRE_BOMB      = 'b';
-const char FIRE_TORPEDO   = 't';
-const char FIRE_FIREWORKS = 'f';
-
-const char DIRECTION_UP = 'u';
-const char DIRECTION_RIGHT = 'r';
-const char DIRECTION_DOWN = 'd';
-const char DIRECTION_LEFT = 'l';
-
-const string BATTLEFIELD_FILENAME = "battlefield.txt";
-
-const string run_bot_under_user[2] = { "botuser0", "botuser1" };
-const unsigned SHIPS = 7;
-const unsigned ships_x_size[SHIPS] = { 1, 1, 1, 1, 1, 1, 2 };
-const unsigned ships_y_size[SHIPS] = { 5, 4, 3, 3, 2, 2, 3 };
-
-/* field mapping one-dimensional ID of fireworks fields to real fields; we
- * generate FIREWORKS_HITS randim numbers from 0..15 and then bomb fields
- * [fireworks_pos_x[i],fireworks_pos_y[i] for every rnd. "i" */
-const int fireworks_pos_x[16] =
-  { -2, -1,  0,  1,  2,  2,  2,  2,  2,  1,  0, -1, -2, -2, -2, -2 };
-const int fireworks_pos_y[16] =
-  { -2, -2, -2, -2, -2, -1,  0,  1,  2,  2,  2,  2,  2,  1,  0,  1 };
-
-struct fleet_info_t {
-unsigned charges;
-unsigned ship_fields_alive;
-unsigned points;
-string bot_dir;
-string last_round;
-};
-
-typedef char response_t[128];
-
-/* auxiliary function to convert unsigned to string */
-string unsigned_to_string(unsigned u);
+const string run_bot_under_user[NUM_PLAYERS] = {  "botuser0", "botuser1"};
 
 class PlayField
 {
+  struct position_t {
+    unsigned x;
+    unsigned y;
+  };
 
-public:
-PlayField(string *bots_dir, string _battlefields_dir);
-~PlayField();
-bool game_finished() { return _game_finished; };
-void play_one_round(response_t *moves);
-unsigned get_current_round() { return current_round; };
-bool is_fleet_alive(unsigned player);
-void set_debug(bool _debug) { debug = _debug; };
-bool is_playfield_generated() { return playfield_generated; };
-void print_battlefield_for_player(unsigned player);
-void get_points(unsigned points[NUM_PLAYERS]);
+  struct player_info_t {
+    position_t home_base;
+    position_t rackets[RACKETS_PER_PLAYER];
+    bool rackets_shot[RACKETS_PER_PLAYER];
+    unsigned points;
+    string last_move;
+  };
 
-private:
-fleet_info_t fleets[NUM_PLAYERS];
-char **battlefield;
-string battlefields_dir;
-bool _game_finished;
-bool playfield_generated;
-bool debug;
-unsigned current_round;
-void write_playfield_to_disk(const char *mode);
-void increase_current_round();
-void generate_battlefield();
-void print_battlefield(ostream & out, bool *move_ok);
-bool try_to_place_one_boat(unsigned boat);
-char missile_to_field(unsigned player, int x, int y);
-void fire_bomb(unsigned player, int x, int y);
-void fire_torpedo(unsigned player, int x, int y, int x_diff, int y_diff);
-void fire_fireworks(unsigned player, int x, int y);
+  public:
+    PlayField(const string _filename, string _battlefield_dir);
+    ~PlayField();
+    bool loaded_ok() { return field_loaded; };
+    bool game_finished() { return _game_finished; };
+    void write_playfield_to_disk(bool rewrite_original_file);
+    void play_one_round(response_t *_moves, bool write_to_disk = true,
+                        bool rewrite_original_file = false);
+    unsigned get_current_round() { return current_round; };
+    string get_current_filename() { return (battlefield_dir + "/" + filename); };
+    void get_player_points(unsigned points[NUM_PLAYERS]);
+    void set_debug(bool _debug) { debug = _debug; };
+
+  private:
+    bool field_loaded;
+    bool _game_finished;
+    unsigned current_round, total_rounds;
+    unsigned width, height;
+    unsigned remaining_asteroids;
+    string filename;
+    string battlefield_dir;
+    player_info_t players[NUM_PLAYERS];
+    char *field;
+    bool makes_sense_to_play();
+    void shot_to_racket(unsigned p, unsigned r);
+    inline bool is_racket_shot(unsigned p, unsigned r)
+    {
+      return players[p].rackets_shot[p];
+    }
+    bool new_field_position(unsigned x, unsigned y, char direction,
+                            unsigned & newpos);
+    bool new_field_position(unsigned oldpos, char direction, unsigned & newpos);
+    bool ok_to_move(unsigned pos, int dir);
+    int movement_to_diff_pos(char ch);
+    int direction_to_diff_pos(unsigned dir);
+    void add_moves_result(string & move, unsigned shot_length, const char* result);
+    void add_moves_result(string & move, char asteroid_weight);
+    inline bool is_here_asteroid(unsigned pos)
+    {
+      return ((field[pos] > FIELD_ASTEROID) && 
+              (field[pos] <= FIELD_ASTEROID+RACKETS_PER_PLAYER));
+    }
+    void move_rockets_after_push(unsigned from, unsigned to,
+        string moves[NUM_PLAYERS][RACKETS_PER_PLAYER],
+        bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER],
+        bool (&valid_push)[NUM_PLAYERS][RACKETS_PER_PLAYER]);
+    void canonize_moves(string moves[NUM_PLAYERS][RACKETS_PER_PLAYER], bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER]);
+    bool debug;
 };
 
 #endif  /* !PLAYFIELD_H */

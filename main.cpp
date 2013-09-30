@@ -21,39 +21,47 @@
  *
  */
 
-#include <cstdio>
-#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 #include "OptionParser.h"
 #include "PlayField.h"
 
 using namespace std;
 
+bool killall;
+pthread_t thr[NUM_PLAYERS];
+
 struct Options : OptionParser
 {
   string strategy[NUM_PLAYERS];
+  string field_filename;
   bool one_round;
   bool sudo_mode;
   bool debug;
+  bool delete_old_playing_fields;
   string battlefields_dir;
 
   Options()
     : OptionParser("Pouziti: ./redbot [OPTIONS] strategie1 strategie2 .. strategieN", "Spust redbot server"),
+    field_filename(FIELD_DEFAULT_FILENAME),
     one_round(false),
     sudo_mode(false),
     debug(false),
+    delete_old_playing_fields(false),
     battlefields_dir("game")
     {
-      add("one_round,o", one_round, "odehrej jen jedno kolo");
+      add("field,f", field_filename, "soubor s hracim planem");
+      add("jedno_kolo,j", one_round, "odehrej jen jedno kolo");
       add("sudo_mode,s", sudo_mode, "sudo-mod - klienti pobezi pod separatnimi uzivateli");
       add("debug,d", debug, "debug mod");
-      add("bfields,b", battlefields_dir, "adresar kam si server bude ukladat hraci plany");
+      add("plan,p", battlefields_dir, "adresar kam si server bude ukladat hraci plany");
+      add("smaz_stare_plany,S", delete_old_playing_fields, "Smaz stare soubory z predchozi hry.");
     }
 
     bool checkStrategies()
@@ -83,11 +91,13 @@ typedef struct _thread_data_t
   string binary_to_exe;
 } thread_data_t;
 
+
 /* thread function */
 void *thr_func(void *arg)
 {
   thread_data_t *data;
   FILE* pipe;
+  string killproc;
   response_t buffer;
 
   /* request delivery of any pending cancellation request */
@@ -101,13 +111,13 @@ void *thr_func(void *arg)
   {
     fprintf(stderr, "pipe: error in popen %s\n", data->binary_to_exe.c_str());
   }
-  while(!feof(pipe))
+  while((!killall)&&(!feof(pipe)))
   {
-    if ((fgets(buffer, 128, pipe) != NULL) &&
+    if ((fgets(buffer, RESPONSE_LENGTH, pipe) != NULL) &&
         (data->response[0] == '\0'))
     {
-      strncpy(data->response,buffer, 128);
-      data->response[127] = '\0';
+      strncpy(data->response,buffer, RESPONSE_LENGTH);
+      data->response[RESPONSE_LENGTH-1] = '\0';
     }
   }
   pclose(pipe);
@@ -122,7 +132,6 @@ int main(int argc, char **argv)
   string sudo_test;
 
   /* some thread related stuff */
-  pthread_t thr[NUM_PLAYERS];
   thread_data_t thr_data[NUM_PLAYERS];
   int rc, tid;
   response_t response[NUM_PLAYERS];
@@ -135,11 +144,10 @@ int main(int argc, char **argv)
   string bots_bin[NUM_PLAYERS];
   size_t last_slash_pos;
 
-  unsigned time_elapsed;
+  unsigned time_elapsed, random_seed;
   bool all_responded;
   string sudo_kill;
   unsigned points[NUM_PLAYERS];
-  unsigned random_seed = time(NULL);
 
   int i;
   char *c;
@@ -226,8 +234,6 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
     }
   }
-
-  /* load playing field */
   // generate some really random seed for srand
   std::ifstream file ("/dev/urandom", std::ios::binary);
   if (file.is_open())
@@ -245,45 +251,71 @@ int main(int argc, char **argv)
     cerr << "Nepodarilo se otevrit soubor /dev/urandom pro generovani nahodnych cisel!" << endl;
     return EXIT_FAILURE;
   }
-
   srand (random_seed);
-  PlayField playfield(bots_dir, options.battlefields_dir);
-  if (!(playfield.is_playfield_generated()))
-  {
-    cerr << "Nepodarilo se mi umistit lode!!!" << endl;
+
+  /* load playing field */
+  PlayField playfield(options.field_filename, options.battlefields_dir);
+  playfield.set_debug(options.debug);
+  if (!playfield.loaded_ok()) {
     return EXIT_FAILURE;
   }
-  playfield.set_debug(options.debug);
+
+  /* delete playing field snapshots from previous game */
+  string filename, aux_filename = options.battlefields_dir + "/";
+  if (options.delete_old_playing_fields) {
+    size_t last_dir_delim = options.field_filename.find("/");
+    if (last_dir_delim != string::npos)
+      aux_filename += options.field_filename.substr(last_dir_delim+1);
+    else
+      aux_filename += options.field_filename;
+    int i=0;
+    char s[10];
+    do {
+        i++;
+        sprintf(s, ".%04d", i);
+        filename=aux_filename + s;
+    }
+    while (remove(filename.c_str()) == 0);
+  }
+  /* zkopiruj puvodni soubor do adresare options.battlefields_dir */
+  std::ifstream src(options.field_filename.c_str());
+  std::ofstream dst(aux_filename.c_str());
+  dst << src.rdbuf();
 
   do
   {
+    killall=false;
     cout << playfield.get_current_round() + 1 << ". kolo:";
 
     /* create & run threads */
     for (tid = 0; tid < NUM_PLAYERS; ++tid)
     {
-      if (playfield.is_fleet_alive(tid))
+      /* zkopiruj aktualni soubor */
+      aux_filename = bots_dir[tid] + "/" + FIELD_DEFAULT_FILENAME;
+      std::ifstream src2(playfield.get_current_filename().c_str());
+      std::ofstream dst2(aux_filename.c_str());
+      dst2 << src2.rdbuf();
+
+      thr_data[tid].tid = tid;
+      /* binary_to_exe to contain:
+        1) in sudo-mode something like
+             "sudo -u botuser0 user0_bot/bot_binary <args>"
+        2) in non-sudo mode (default) then: "user0_bot/bot_binary <args>"
+       */
+      ostringstream ss;
+      ss << "cd " << bots_dir[tid] << "; ./" << bots_bin[tid] << " " << tid+1;
+      thr_data[tid].binary_to_exe = ss.str();
+      if (options.sudo_mode)
       {
-        thr_data[tid].tid = tid;
-        /* binary_to_exe to contain:
-          1) in sudo-mode something like
-               "sudo -u botuser0 user0_bot/bot_binary <args>"
-          2) in non-sudo mode (default) then: "user0_bot/bot_binary <args>"
-         */
-        thr_data[tid].binary_to_exe = "cd " + bots_dir[tid] + "; ./"
-                                    + bots_bin[tid] + " ";
-        if (options.sudo_mode)
-        {
-          thr_data[tid].binary_to_exe =
-            "sudo -u " + run_bot_under_user[tid] + " "
-            + thr_data[tid].binary_to_exe;
-        }
-        rc = pthread_create(&thr[tid], NULL, thr_func, &thr_data[tid]);
-        if (rc) {
-          cerr << "pthread_create se neprovedl, navratova hodnota: " << rc
-               << endl;
-          return EXIT_FAILURE;
-        }
+        thr_data[tid].binary_to_exe =
+          "sudo -u " + run_bot_under_user[tid] + " "
+          + thr_data[tid].binary_to_exe;
+      }
+      rc = pthread_create(&thr[tid], NULL, thr_func, &thr_data[tid]);
+      if (rc) {
+        cerr << "pthread_create se neprovedl, navratova hodnota: " << rc
+             << endl;
+        return EXIT_FAILURE;
       }
     }
 
@@ -299,10 +331,7 @@ int main(int argc, char **argv)
 
       for (tid = 0; tid < NUM_PLAYERS; ++tid)
       {
-        if (playfield.is_fleet_alive(tid))
-        {
           all_responded &= (thr_data[tid].response[0] != '\0');
-        }
       }
 
       if (all_responded)
@@ -312,32 +341,26 @@ int main(int argc, char **argv)
     }
 
     /* put bot responses to relevnant variable response[tid] */
+    killall=true;
     for (tid = 0; tid < NUM_PLAYERS; ++tid)
     {
-      if (playfield.is_fleet_alive(tid))
+      pthread_cancel(thr[tid]);
+      pthread_join(thr[tid], NULL);
+      if (options.sudo_mode)
       {
-        pthread_cancel(thr[tid]);
-        pthread_join(thr[tid], NULL);
-        if (options.sudo_mode)
-        {
-          sudo_kill = "sudo -u " + run_bot_under_user[tid] + " kill -9 -1";
-          system(sudo_kill.c_str());
-        }
-
-        /* save bot response to relevant structure */
-        strncpy (response[tid],thr_data[tid].response, 128);
-        response[tid][127] = '\0';
-
-        /* only the first line of trategy entry is relevant */
-        c = strchr(response[tid],'\n');
-        if (c != NULL)
-        {
-          c[0] = '\0';
-        }
+        sudo_kill = "sudo -u " + run_bot_under_user[tid] + " kill -9 -1";
+        system(sudo_kill.c_str());
       }
-      else
+
+      /* save bot response to relevant structure */
+      strncpy (response[tid],thr_data[tid].response, RESPONSE_LENGTH);
+      response[tid][RESPONSE_LENGTH-1] = '\0';
+
+      /* only the first line of trategy entry is relevant */
+      c = strchr(response[tid],'\n');
+      if (c != NULL)
       {
-        response[tid][0] = '\0';
+        c[0] = '\0';
       }
       cout << "\t\"" << response[tid] << "\"";
     }
@@ -355,13 +378,15 @@ int main(int argc, char **argv)
   }
   while ((!(playfield.game_finished())) && (!(options.one_round)));
 
-  cout << "Hra skoncila, flotily maji bodu:";
-  playfield.get_points(points);
-  for (i = 0; i < NUM_PLAYERS; i++)
-  {
-    cout << ' ' << points[i];
+  if (playfield.game_finished()) {
+    cout << "Hra skoncila, hraci maji bodu:";
+    playfield.get_player_points(points);
+    for (i = 0; i < NUM_PLAYERS; i++)
+    {
+      cout << ' ' << points[i];
+    }
+    cout << endl;
   }
-  cout << endl;
 
   return EXIT_SUCCESS;
 }

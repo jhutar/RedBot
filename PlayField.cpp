@@ -23,520 +23,566 @@
 
 #include "PlayField.h"
 #include <cstdlib>
-#include <fstream>
-
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define FIELDCHAR_IS_EMPTY(ch) ((ch != FIELD_SHIP1) && (ch != FIELD_SHIP2))
+#include <iostream>
+#include <cstdio>
+#include <string>
+#include <list>
+#include <string.h>
+#include <assert.h>
+#include <sstream>
 
 using namespace std;
 
-/* auxiliary function to convert unsigned to string */
-string unsigned_to_string(unsigned u)
+PlayField::PlayField(const string _filename, string _battlefield_dir) : filename(_filename), battlefield_dir(_battlefield_dir)
 {
-  string s="";
-  if (u==0)
-    s="0";
-  while (u>0)
-  {
-    s = (char)(u%10+48) + s;
-    u /= 10;
-  }
-  return s;
-}
-
-PlayField::PlayField(string *bots_dir, string _battlefields_dir)
-{
+  field_loaded=false;
+  field=NULL;
+  FILE *fd;
   unsigned i, j;
-  bool move_ok[NUM_PLAYERS]; // auxiliary here only
-  _game_finished = false;
-  battlefields_dir = _battlefields_dir;
-  ofstream ofile;
-  string filename = BATTLEFIELD_FILENAME;
-  filename = battlefields_dir + "/" + filename + ".0";
+  char c;
+  char response[RESPONSE_LENGTH*3];
 
-  current_round = 0;
-  /* setup some fleets stuff */
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    fleets[i].charges = MAX_CHARGES;
-    fleets[i].ship_fields_alive = 0;
-    fleets[i].points = 0;
-    fleets[i].bot_dir = bots_dir[i];
-    fleets[i].last_round = "";
-    for (j=0; j<SHIPS; j++)
-    {
-      fleets[i].ship_fields_alive += ships_x_size[j]*ships_y_size[j];
+  fd = fopen(filename.c_str(),"r");
+  if (!fd) {
+    fprintf(stderr, "Nelze otevrit soubor s hracim planem: %s\n", filename.c_str());
+    return;
+  }
+
+  /* nacti soucasne kolo a celkovy pocet kol */
+  fscanf(fd,"%u %u\n", &current_round, &total_rounds);
+
+  /* nacti sirku a vysku planu, alokuj hraci plan */
+  fscanf(fd,"%u %u\n", &width, &height);
+  field = new char [width*height];
+
+  /* nacti informace o hracich */
+  for (i = 0; i < NUM_PLAYERS; i++ ) {
+    fscanf(fd,"Hrac%*u: Body:%u Zakladna:[%u,%u] Rakety", &(players[i].points), &(players[i].home_base.x), &(players[i].home_base.y));
+    for (j = 0; j < RACKETS_PER_PLAYER; j++) {
+      fscanf(fd,"%c[%u,%u]", &c, &(players[i].rackets[j].x), &(players[i].rackets[j].y));
+      players[i].rackets_shot[j]=false;
     }
+    fgetc(fd);
   }
-  /* generate boats */
-  generate_battlefield();
 
-  /* write files - for both players and the overall battlefield */
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    print_battlefield_for_player(i);
-    move_ok[i] = true;
+  /* precti odpovedi hracu z minuleho kola */
+  for (i = 0; i < NUM_PLAYERS; i++ ) {
+    fscanf(fd,"Odpoved hrace %*u:");
+    fgets(response, RESPONSE_LENGTH*3, fd);
+    players[i].last_move = response;
+    players[i].last_move = players[i].last_move.substr(0,
+                             players[i].last_move.length() - 1); //odstran '\n'
   }
-  ofile.open(filename.c_str());
-  print_battlefield(ofile, move_ok);
-  ofile.close();
-}
 
-PlayField::~PlayField()
-{
-  unsigned x;
-  if (battlefield)
-  {
-    for (x=0; x<BATTLEFIELD_SIZE; x++)
-    {
-      delete[] battlefield[x];
+  /* nacti polohy asteroidu */
+  for (i = 0; i<height; i++) {
+    for (j = 0; j<width; j++) {
+      field[i*width+j] = fgetc(fd);
     }
-    delete[] battlefield;
-  }
-}
-
-bool PlayField::is_fleet_alive(unsigned player)
-{
-  return (fleets[player].ship_fields_alive > 0);
-}
-
-void PlayField::increase_current_round()
-{
-  current_round++;
-  if ((current_round == MAX_ROUNDS) || (!(is_fleet_alive(0))) || (!(is_fleet_alive(1))))
-  {
-    _game_finished = true;
-  }
-}
-
-char PlayField::missile_to_field(unsigned player, int x, int y)
-{
-  char hit = battlefield[x][y];
-  fleets[player].last_round += (string)" " + unsigned_to_string((unsigned)x) +
-                               "," + unsigned_to_string((unsigned)y) + "(" +
-                               hit + ")";
-  switch (battlefield[x][y])
-  {
-    case FIELD_EMPTY:
-    {
-      battlefield[x][y] = FIELD_EMPTY_HIT;
-      break;
-    }
-    case FIELD_SHIP1:
-    case FIELD_SHIP2:
-    {
-      fleets[50-battlefield[x][y]].points++;
-      fleets[battlefield[x][y]-49].ship_fields_alive--;
-      battlefield[x][y] = (battlefield[x][y]==FIELD_SHIP1)?(FIELD_SHIP1_HIT):(FIELD_SHIP2_HIT);
-      break;
-    }
-  }
-  return hit;
-}
-
-void PlayField::fire_bomb(unsigned player, int x, int y)
-{
-  fleets[player].charges--;
-  missile_to_field(player, x, y);
-  if (x<BATTLEFIELD_SIZE-1)
-  {
-    missile_to_field(player, x+1, y);
-  }
-  if (y<BATTLEFIELD_SIZE-1)
-  {
-    missile_to_field(player, x, y+1);
-  }
-  if ((x<BATTLEFIELD_SIZE-1) && (y<BATTLEFIELD_SIZE-1))
-  {
-    missile_to_field(player, x+1, y+1);
-  }
-}
-
-void PlayField::fire_torpedo(unsigned player, int x, int y, int x_diff, int y_diff)
-{
-  char hit = FIELD_EMPTY;
-  fleets[player].charges--;
-  x += x_diff;
-  y += y_diff;
-  while (FIELDCHAR_IS_EMPTY(hit) &&
-        (x>=0) && (x<BATTLEFIELD_SIZE) && (y>=0) && (y<BATTLEFIELD_SIZE))
-  {
-    hit = missile_to_field(player, x, y);
-    x += x_diff;
-    y += y_diff;
-  }
-}
-
-void PlayField::fire_fireworks(unsigned player, int x, int y)
-{
-  bool fireworks_hit[16];
-  unsigned i, hits;
-  int xx, yy;
-  fleets[player].charges--;
-  missile_to_field(player, x, y);
-
-  /* generate FIREWORKS_HITS random numbers from range 0..15 */
-  for (i=0; i<16; i++)
-  {
-    fireworks_hit[i] = false;
-  }
-  i=0;
-  for (hits=0; hits<FIREWORKS_HITS; hits++)
-  {
-    do
-    {
-      i = (i+(rand()%16)) % 16;
-    }
-    while (fireworks_hit[i]);
-    fireworks_hit[i]=true;
+    fgetc(fd);
   }
 
-  /* fire to the randomly generated fields */
-  for (i=0; i<16; i++)
-  {
-    if (fireworks_hit[i])
-    {
-      xx = x + fireworks_pos_x[i];
-      yy = y + fireworks_pos_y[i];
-      if ((xx>=0) && (xx<BATTLEFIELD_SIZE) && (yy>=0) && (yy<BATTLEFIELD_SIZE))
-      {
-        missile_to_field(player, xx, yy);
-      }
-    }
-  }
+  fclose(fd);
+  field_loaded=true;
+  write_playfield_to_disk(false);
+
+  _game_finished=((current_round >= total_rounds) || (!makes_sense_to_play()));
 }
 
 
-void PlayField::play_one_round(response_t* moves)
-{
-  int i, x[NUM_PLAYERS], y[NUM_PLAYERS], x_diff[NUM_PLAYERS], y_diff[NUM_PLAYERS];
-  char order[NUM_PLAYERS], direction[NUM_PLAYERS];
-  ofstream ofile;
-  bool move_ok[NUM_PLAYERS];
-  string filename = BATTLEFIELD_FILENAME;
-
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    fleets[i].last_round = (string)"\"" + moves[i];
-    fleets[i].last_round += "\", hit:";
-    move_ok[i] = (EOF != sscanf(moves[i], "%c %u %u", &order[i], &x[i], &y[i]));
-    move_ok[i] &= ((x[i] >= 0) && (x[i] < BATTLEFIELD_SIZE) 
-               && (y[i] >= 0) && (y[i] < BATTLEFIELD_SIZE));
-    if (move_ok[i])
-    {
-      switch (order[i])
-      {
-	case FIRE_MISSILE:
-	  break;
-	case FIRE_BOMB:
-	{
-	  move_ok[i] = (fleets[i].charges > 0);
-	  break;
-	}
-	case FIRE_TORPEDO:
-	{
-          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x[i]][y[i]] == (i+49))
-                     && (EOF != sscanf(moves[i], "%c %u %u %c", &order[i], &x[i], &y[i],
-                                                                &direction[i])));
-          if (move_ok[i])
-          {
-            x_diff[i]=0; y_diff[i]=0;
-            switch (direction[i])
-            {
-              case DIRECTION_UP:
-              {
-                y_diff[i] = -1;
-                break;
-              }
-              case DIRECTION_RIGHT:
-              {
-                x_diff[i] = 1;
-                break;
-              }
-              case DIRECTION_DOWN:
-              {
-                y_diff[i] = 1;
-                break;
-              }
-              case DIRECTION_LEFT:
-              {
-                x_diff[i] = -1;
-                break;
-              }
-              default:
-              {
-                move_ok[i] = false;
-                break;
-              }
-            } /* end of "switch (direction)" */
-          }
-	  break;
-        }
-        case FIRE_FIREWORKS:
-	{
-          move_ok[i] = ((fleets[i].charges > 0) && (battlefield[x[i]][y[i]] == (i+49)));
-	  break;
-	}
-        default:
-        {
-          move_ok[i] = false;
-          break;
-        }
-      } // end of "switch (order)"
-    } // end of "if (move_ok[i])"
-    if (!move_ok[i])
-    {
-      cout << "Chybna odpoved " << (i+1) << "-teho hrace: \"" << moves[i] << "\"" << endl;
-    }
-  } // end of "for (i=0; i<NUM_PLAYERS; i++)"
-
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    if (move_ok[i])
-    {
-      switch (order[i])
-      {
-        case FIRE_MISSILE:
-        {
-          missile_to_field(i,x[i],y[i]);
-          break;
-        }
-        case FIRE_BOMB:
-        {
-          fire_bomb(i, x[i], y[i]);
-          break;
-        }
-        case FIRE_TORPEDO:
-        {
-          fire_torpedo(i, x[i], y[i], x_diff[i], y_diff[i]);
-          break;
-        }
-        case FIRE_FIREWORKS:
-        {
-          fire_fireworks(i, x[i], y[i]);
-          break;
-        }
-      } /* end of switch */
-    }
-  } /* end of for cycle */
-
-  increase_current_round();
-  filename = battlefields_dir + "/" + filename + "." + unsigned_to_string(current_round);
-  ofile.open(filename.c_str());
-  print_battlefield(ofile, move_ok);
-  ofile.close();
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    print_battlefield_for_player(i);
+PlayField::~PlayField() {
+  if (field) {
+    delete[] field;
   }
 }
 
-/* classic backtracking algorithm used: try to randomly put one boat after
- * another until there is a conflict (then remove latest boat) or all boats
- * are put
- */
-bool PlayField::try_to_place_one_boat(unsigned boat)
-{
-  bool boat_put;
-  int start_x, start_y, x_size, y_size, x, y;
-  for (unsigned attempt=0; attempt<100; attempt++)
-  {
-    if (rand()%2==0)
-    {
-      x_size=ships_x_size[boat%SHIPS];
-      y_size=ships_y_size[boat%SHIPS];
-    }
-    else
-    {
-      x_size=ships_y_size[boat%SHIPS];
-      y_size=ships_x_size[boat%SHIPS];
-    }
-    start_x = rand()%(BATTLEFIELD_SIZE-x_size+1);
-    start_y = rand()%(BATTLEFIELD_SIZE-y_size+1);
-    boat_put=true; //until we find a conflict
-    //check the boat itself
-    for (x=0; x<x_size; x++)
-    {
-      for (y=0; y<y_size; y++)
-      {
-        boat_put&=(battlefield[start_x+x][start_y+y] == ' ');
-      }
-    }
-    //check above the boat
-    if (start_y>0)
-    {
-      for (x=MAX(start_x-1,0); x<MIN(start_x+x_size+1,BATTLEFIELD_SIZE); x++)
-      {
-        boat_put&=(battlefield[x][start_y-1] == ' ');
-      }
-    }
-    //check right from the boat
-    if (start_x+x_size<BATTLEFIELD_SIZE)
-    {
-      for (y=MAX(start_y-1,0); y<MIN(start_y+y_size+1,BATTLEFIELD_SIZE); y++)
-      {
-        boat_put&=(battlefield[start_x+x_size][y] == ' ');
-      }
-    }
-    //check below the boat
-    if (start_y+y_size<BATTLEFIELD_SIZE)
-    {
-      for (x=MAX(start_x-1,0); x<MIN(start_x+x_size+1,BATTLEFIELD_SIZE); x++)
-      {
-        boat_put&=(battlefield[x][start_y+y_size] == ' ');
-      }
-    }
-    //check left from the boat
-    if (start_x>0)
-    {
-      for (y=MAX(start_y-1,0); y<MIN(start_y+y_size+1,BATTLEFIELD_SIZE); y++)
-      {
-        boat_put&=(battlefield[start_x-1][y] == ' ');
-      }
-    }
+/* if there already exist an asteroid returns true */
+bool PlayField::makes_sense_to_play() {
+  int i;
 
-    if (boat_put)
-    {
-      //really place the boat
-      for (x=0; x<x_size; x++)
-      {
-        for (y=0; y<y_size; y++)
-        {
-          battlefield[start_x+x][start_y+y] = (boat/SHIPS) + 49;
-        }
-      }
-      if (boat == SHIPS*NUM_PLAYERS - 1)
-      {
-        return true;
-      }
-      else
-      {
-        if (try_to_place_one_boat(boat+1))
-        {
-          return true;
-        }
-        else /* remove the boat, can't be placed */
-        {
-          for (x=0; x<x_size; x++)
-          {
-            for (y=0; y<y_size; y++)
-            {
-              battlefield[start_x+x][start_y+y] = ' ';
-            }
-          }
-        }
-      }
-    }
+  for (i = 0; i<RACKETS_PER_PLAYER; i++ ) {
+    if (strchr(field, FIELD_ASTEROID+i+1)!=NULL)
+      return true;
   }
+
   return false;
 }
 
-void PlayField::generate_battlefield()
+void PlayField::write_playfield_to_disk(bool rewrite_original_file)
 {
-  unsigned x,y;
-  battlefield = new char*[BATTLEFIELD_SIZE];
-  for (x=0; x<BATTLEFIELD_SIZE; x++)
-  {
-    battlefield[x] = new char[BATTLEFIELD_SIZE];
-    for (y=0; y<BATTLEFIELD_SIZE; y++)
-      battlefield[x][y] = ' ';
-  }
-  /* start backtracking */
-  playfield_generated = try_to_place_one_boat(0);
-}
-
-void PlayField::print_battlefield_for_player(unsigned player)
-{
-  unsigned x,y;
+  string new_filename(filename);
+  size_t last_dir_delim = filename.find("/");
+  if (last_dir_delim != string::npos)
+    new_filename = filename.substr(last_dir_delim+1);
+  char s[10], s2[10];
   FILE *fd;
-  string filename = fleets[player].bot_dir + BATTLEFIELD_FILENAME;
-  fd = fopen(filename.c_str(),"w");
-  fprintf(fd, "%d %d %d\n", player+1, MAX_ROUNDS-current_round, fleets[player].charges);
-  for (y=0; y<BATTLEFIELD_SIZE; y++)
-  {
-    for (x=0; x<BATTLEFIELD_SIZE; x++)
-    {
-      switch (battlefield[x][y])
-      {
-        case FIELD_EMPTY:
-        case FIELD_EMPTY_HIT:
-        {
-          fprintf(fd, "%c", battlefield[x][y]);
-          break;
-        }
-        case FIELD_SHIP1_HIT:
-        {
-          fprintf(fd, "%c", (player==0)?(FIELD_MY_SHIP_HIT):(FIELD_HIS_SHIP_HIT));
-          break;
-        }
-        case FIELD_SHIP2_HIT:
-        {
-          fprintf(fd, "%c", (player==1)?(FIELD_MY_SHIP_HIT):(FIELD_HIS_SHIP_HIT));
-          break;
-        }
-        default: /* not hit boat (i.e. FIELD_SHIP1 or FIELD_SHIP2), here we assumes FIELD_SHIP1 = '1' etc. */
-        {
-          fprintf(fd, "%c", (battlefield[x][y]==((char)(49 + player)))?(FIELD_MY_SHIP):(FIELD_EMPTY));
-          break;
-        }
-      }
+  unsigned i, j;
+
+  if (!(rewrite_original_file)) {
+    sprintf(s, ".%04d", current_round-1);
+    sprintf(s2, ".%04d", current_round);
+    if (new_filename.rfind(s) == new_filename.length()-strlen(s)) {
+      new_filename.replace(new_filename.length()-strlen(s), strlen(s), "");
     }
-    fprintf(fd, "\n");
+    if (new_filename.rfind(s2) != new_filename.length()-strlen(s2)) {
+      new_filename += s2;
+    }
+    filename=new_filename; /* nutne kvuli zapisu na disk po odehrani dalsiho kola */
   }
+  new_filename = battlefield_dir + "/" + new_filename;
+
+  fd = fopen(new_filename.c_str(),"w+");
+  if (fd == NULL) {
+    cerr << "soubor " << new_filename.c_str() << " nelze vytvorit" << endl;
+    return;
+  }
+  fprintf(fd,"%u %u\n", current_round, total_rounds);
+
+  /* zapis sirku a vysku hraciho planu */
+  fprintf(fd,"%u %u\n", width, height);
+
+  /* zapis data o hracich */
+  for (i = 0; i < NUM_PLAYERS; i++ ) {
+    fprintf(fd,"Hrac %u: Body:%u Zakladna:[%u,%u] Rakety", i+1, players[i].points, players[i].home_base.x, players[i].home_base.y);
+    for (j = 0; j < RACKETS_PER_PLAYER; j++) {
+      fprintf(fd,":[%u,%u]", players[i].rackets[j].x, players[i].rackets[j].y);
+    }
+    fprintf(fd,"\n");
+  }
+  i=0;
+  for (i=0; i<NUM_PLAYERS; i++) {
+    fprintf(fd,"Odpoved hrace %u:%s\n", i+1, players[i].last_move.c_str());
+  }
+
+  /* zapis hraci plan samotny */
+  for (i = 0; i < height; i++) {
+    for (j = 0; j < width; j++)
+      fprintf(fd, "%c", field[i*width+j]);
+    fputc('\n', fd);
+  }
+
   fclose(fd);
 }
 
-void print_top_line(ostream &out)
-{
-  unsigned x;
-  out << '+';
-  for (x=1; x<BATTLEFIELD_SIZE+1; x++)
-  {
-    out << "-";
-  }
-  out << '+';
-  out << endl;
+
+bool PlayField::new_field_position(unsigned x, unsigned y, char direction, unsigned& newpos) {
+  return new_field_position(y*width+x, direction, newpos);
 }
 
-void PlayField::print_battlefield(ostream &out, bool *move_ok)
+bool PlayField::new_field_position(unsigned oldpos, char direction, unsigned& newpos) {
+  switch (direction) {
+    case LEFT_MOVE_CHARACTER: {
+      newpos=oldpos-1;
+      break;
+    }
+    case RIGHT_MOVE_CHARACTER: {
+      newpos=oldpos+1;
+      break;
+    }
+    case UP_MOVE_CHARACTER: {
+      newpos=oldpos-width;
+      break;
+    }
+    case DOWN_MOVE_CHARACTER: {
+      newpos=oldpos+width;
+      break;
+    }
+    default:
+      return false;
+  }
+  return true;
+}
+
+bool is_valid_direction(char ch) {
+  return ((ch==LEFT_MOVE_CHARACTER)||(ch==RIGHT_MOVE_CHARACTER)
+           ||(ch==UP_MOVE_CHARACTER)||(ch==DOWN_MOVE_CHARACTER));
+}
+
+int direction_to_int(char ch) {
+  switch (ch) {
+    case LEFT_MOVE_CHARACTER: {
+      return 0;
+    }
+    case RIGHT_MOVE_CHARACTER: {
+      return 1;
+    }
+    case UP_MOVE_CHARACTER: {
+      return 2;
+    }
+    case DOWN_MOVE_CHARACTER: {
+      return 3;
+    }
+  }
+  return 5; /*vyhodi out-of-bounds chybu; nemelo by nastat diky is_valid_direction*/
+}
+
+int PlayField::movement_to_diff_pos(char ch) {
+  switch (ch) {
+    case LEFT_MOVE_CHARACTER:
+      return -1;
+    case RIGHT_MOVE_CHARACTER:
+      return +1;
+    case UP_MOVE_CHARACTER:
+      return -width;
+    case DOWN_MOVE_CHARACTER:
+      return +width;
+  }
+  return 0;
+}
+
+/*svazano s implementaci direction_to_int !!!*/
+int PlayField::direction_to_diff_pos(unsigned dir) {
+  switch (dir) {
+    case 0:
+      return -1;
+    case 1:
+      return +1;
+    case 2:
+      return -width;
+    case 3:
+      return +width;
+  }
+  return 0; /*nemelo by nastat*/
+}
+
+void PlayField::shot_to_racket(unsigned p, unsigned r) {
+  players[p].rackets[r].x = players[p].home_base.x;
+  players[p].rackets[r].y = players[p].home_base.y;
+  players[p].rackets_shot[r] = true;
+}
+
+bool PlayField::ok_to_move(unsigned pos, int dir) {
+  return (((dir==-1)&&(pos%width>0)) //pohyb vlevo
+        ||((dir==+1)&&(pos%width<width-1)) //pohyb vpravo
+        ||((dir==(int)(-width))&&(pos>width)) //pohyb nahoru
+        ||((dir==(int)(+width))&&(pos<width*height-width))); //pohyb dolu
+}
+
+void PlayField::add_moves_result(string & move, unsigned shot_length, const char* result)
 {
-  unsigned x,y;
-  out << "remaining rounds: " << MAX_ROUNDS-current_round << endl;
-  out << "points:";
-  for (x=0; x<NUM_PLAYERS; x++)
-  {
-    out << ' ' << fleets[x].points;
+  char move_result[30];
+  sprintf(move_result, " (%u,%s)", shot_length, result);
+  move = move + move_result;
+}
+
+void PlayField::add_moves_result(string & move, char asteroid_weight)
+{
+  char move_result[30];
+  sprintf(move_result, " (%c)", asteroid_weight);
+  move = move + move_result;
+}
+
+void PlayField::play_one_round(response_t* _moves, bool write_to_disk, bool rewrite_original_file)
+{
+
+  bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER];
+  bool valid_push[NUM_PLAYERS][RACKETS_PER_PLAYER];
+  unsigned new_pos;
+  int diff_pos;
+  list<unsigned> shot_rackets;
+  unsigned i,j,k;
+  string moves[NUM_PLAYERS][RACKETS_PER_PLAYER];
+  void *ret;
+  /* pole pro obranu a tahani */
+  list<char> aux_defend_field[width*height];
+  unsigned aux_pulls_field[width*height][4];
+
+  /* znuluju potrebne promenne */
+  for (i=0; i<NUM_PLAYERS; i++) {
+    for (j=0; j<RACKETS_PER_PLAYER; j++) {
+      players[i].rackets_shot[j]=false;
+      moves[i][j]=ERROR_ROBOT_MOVE;
+      valid_move[i][j]=true;
+      valid_push[i][j]=true;
+    }
   }
-  out << endl << "charges:";
-  for (x=0; x<NUM_PLAYERS; x++)
-  {
-    out << ' ' << fleets[x].charges;
+
+  /* zvys pocet odehranych kol */
+  if (current_round >= total_rounds) {
+    cerr << "Chyba: odehrano vice kol nez je maximum " << total_rounds << endl;
+    return;
   }
-  out << endl;
-  print_top_line(out);
-  for (y=0; y<BATTLEFIELD_SIZE; y++)
-  {
-    out << "|";
-    for (x=0; x<BATTLEFIELD_SIZE; x++)
-      out << battlefield[x][y];
-    out << "|" << endl;
+
+  /* hraje se posledni kolo */
+  if ((++current_round == total_rounds) && (debug))
+    cout << "Hraje se posledni kolo." << endl;
+
+  /* nacti kroky hracu do promenne "moves" */
+  for (i = 0; i < NUM_PLAYERS; i++ ) {
+    players[i].last_move=_moves[i];
+    istringstream iss(_moves[i]);
+    for (j=0; j<RACKETS_PER_PLAYER; j++) {
+      ret = getline(iss, moves[i][j], MOVES_DELIMETER);
+      if (ret == NULL) {
+        /* nebyla zadana zadna akce */
+        cerr << "Chybna odpoved " << i+1 << ". hrace: prilis malo akci (" << j << ")." << endl;
+        for (unsigned k=j; k<RACKETS_PER_PLAYER; k++)
+          valid_move[i][k]=false;
+      }
+    }
   }
-  print_top_line(out);
-  for (x=0; x<NUM_PLAYERS; x++)
-  {
-    out << "Player " << x+1 << "("
-        << fleets[x].bot_dir.substr(0, fleets[x].bot_dir.size()-1)
-        << "): last command: " << fleets[x].last_round
-        << ((move_ok[x])?(""):(" (INVALID)")) << endl;
+
+  /* poradi vyhodnocovani:
+   * 1. lety raket
+   * 2. obrana
+   * 3. strelba
+   * 4. tahani asteroidu */
+
+  /* zresetuj aux_*_field a nastav aux_defend_field */
+  for (i = 0; i<width*height; i++) {
+    for (j = 0; j<4; j++) {
+      aux_pulls_field[i][j]=0;
+    }
+    aux_defend_field[i].clear();
+  }
+  /* vyhodnot zda jde o validni akci, proved lety raket a nastav obrany */
+  for (i = 0; i < NUM_PLAYERS; i++) {
+    for ( j = 0; j < RACKETS_PER_PLAYER; j++) {
+      new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
+      switch (toupper(moves[i][j][0])) {
+        case DEFEND_ACTION: { /* obrana */
+            if (aux_defend_field[new_pos].empty() || aux_defend_field[new_pos].front()!=AUX_FIELD_WALL)
+              aux_defend_field[new_pos].push_front(AUX_FIELD_WALL);
+            break;
+          }
+        case MOVE_ACTION: { /* let raket */
+            if ((moves[i][j].length()<2) || (!is_valid_direction(toupper(moves[i][j][2])))) {
+              cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: chybi nebo neplatny smer v odpovedi \'" << moves[i][j] << "\'" << endl;
+              valid_move[i][j]=false;
+              break;
+            }
+
+            diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
+            if (!ok_to_move(new_pos,diff_pos)) {
+              cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o odlet z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
+              valid_move[i][j]=false;
+              break;
+            }
+
+            new_pos=new_pos+diff_pos;
+            if (moves[i][j].length()>4) { // raketa chce letet o 2 pole
+              if (!is_valid_direction(toupper(moves[i][j][4]))) {
+                cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neplatny druhy smer v odpovedi \'" << moves[i][j] << "\'" << endl;
+                valid_move[i][j]=false;
+                break;
+              }
+
+              diff_pos=movement_to_diff_pos(toupper(moves[i][j][4]));
+              if (!ok_to_move(new_pos,diff_pos)) {
+                cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o odlet z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
+                valid_move[i][j]=false;
+                break;
+              }
+	      new_pos=new_pos+diff_pos;
+            }
+
+            players[i].rackets[j].x=new_pos%width;
+            players[i].rackets[j].y=new_pos/width;
+            break;
+          }
+        case PULL_ACTION: /* tahnuti asteroidu nyni se ignoruje */
+          break;
+        case SHOT_ACTION: /* strelba - nyni se ignoruje */
+          break;
+        default: {
+          if (valid_move[i][j])
+            cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neznama akce \'" << moves[i][j] << "\'" << endl;
+          valid_move[i][j]=false;
+        }
+      }
+      // nastav ze na tomto policku stoji raketa - at muze byt zastrelena
+      if (aux_defend_field[new_pos].empty() || aux_defend_field[new_pos].front()!=AUX_FIELD_WALL) {
+        aux_defend_field[new_pos].push_front((char)(i*RACKETS_PER_PLAYER+j));
+        // odkaz na raketu ktery by zemrel po pripadne strelbe
+      }
+    }
+  }
+
+  /* vyhodnot strelbu */
+  for (i = 0; i < NUM_PLAYERS; i++)
+    for (j = 0; j < RACKETS_PER_PLAYER; j++)
+      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==SHOT_ACTION)) {
+        new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
+        diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
+        if (diff_pos==0) {
+          cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neznamy smer strelby v \'" << moves[i][j] << "\'" << endl;
+          valid_move[i][j]=false;
+        }
+        k=0;
+        if (valid_move[i][j]) { 
+          if (ok_to_move(new_pos,diff_pos)) {
+            do {
+              new_pos+=diff_pos;
+  	      k++;
+            }
+            while ((aux_defend_field[new_pos].empty())&&(ok_to_move(new_pos,diff_pos)));
+            if (!aux_defend_field[new_pos].empty()) { // neco jsem zasahl
+              if (aux_defend_field[new_pos].front()!=AUX_FIELD_WALL) { // zasah nebranici se rakety
+                shot_rackets.push_front(new_pos);
+                add_moves_result(moves[i][j], k, "zasah");
+              }
+              else { //zasahl jsem branici raketu
+                add_moves_result(moves[i][j], k, "obrana");
+              }
+            }
+            else { // nezasahl jsem nic
+              add_moves_result(moves[i][j], k, "mimo");
+            }
+          }
+          else { // strilim hned mimo plan
+            add_moves_result(moves[i][j], 0, "mimo");
+          }
+        }
+      }
+
+  // az ted odstran zasazene rakety - aby se mohly strelit 2 navzajem
+  while (!shot_rackets.empty()) {
+    new_pos=shot_rackets.front();
+    shot_rackets.pop_front();
+    if (aux_defend_field[new_pos].size()) { // jeste je na policku koho zastrelit
+      i=rand()%(aux_defend_field[new_pos].size());
+      list<char>::iterator iter=aux_defend_field[new_pos].begin();
+      while (i>0) {
+        i--;
+        iter++;
+      }
+      j=((unsigned)(*iter))%RACKETS_PER_PLAYER;
+      i=((unsigned)(*iter))/RACKETS_PER_PLAYER;
+      shot_to_racket(i,j);
+      aux_defend_field[new_pos].erase(iter); // odstran raketu ze seznamu, je zasazena (kdyby byla dalsi strela na stejne policko)
+      if (debug)
+        cout << "Zastrelena " << j+1 << ".raketa " << i+1 << ". hrace na pozici [" << new_pos%width << "," << new_pos/width << "]." << endl;
+    }
+  }
+  // promaz rakety a "zdi" kam se dalo strilet
+  for (i = 0; i<width*height; i++)
+    aux_defend_field[i].clear();
+
+  /* presun asteroidy */
+  // nejdriv nastav pomocne pole
+  for (i = 0; i < NUM_PLAYERS; i++)
+    for (j = 0; j < RACKETS_PER_PLAYER; j++)
+      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==PULL_ACTION)) {
+        new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
+        diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
+        if (!ok_to_move(new_pos,diff_pos)) {
+          cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti pryc z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
+          valid_move[i][j]=false;
+        }
+        else { //TODO: cerr odpovedi kdyz 1. netahnu asteroid, 2. tahnu ale neutahnu
+          if (!is_here_asteroid(new_pos)) {
+            cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti neexistujiciho asteroidu" << endl;
+            valid_move[i][j]=false;
+          }
+	  else {
+            aux_pulls_field[new_pos][direction_to_int(toupper(moves[i][j][2]))]++;
+  	    valid_push[i][j]=false; // docasne dokud nezjistim zda se posun asteroidu povedl
+          }
+        }
+      }
+
+  // ted vyhodnot konfliktni tahani
+  // prochazim tahani dvakrat: v prvnim cyklu zjisti ktery asteroid lze odtahnout a napln pomocne pole na pozice asteroidu
+  // ve druhem kole je skutecne pretahni pokud netahnu asteroid na pole s jinym asteroidem
+  unsigned aux_asteroid_field[width*height];
+  for (i = 0; i<width*height; i++)
+    aux_asteroid_field[i]=(((field[i]>FIELD_ASTEROID)&&(field[i]<=FIELD_ASTEROID+RACKETS_PER_PLAYER))?(1):(0));
+
+  for (unsigned aux_round=0; aux_round<2; aux_round++)
+    for (i = 0; i<width*height; i++) {
+      unsigned sum_weight=(unsigned)(field[i])-48; unsigned max_pull=0; unsigned max_pull_dir=0;
+      for (j=0; j<4; j++) {
+        sum_weight+=aux_pulls_field[i][j];
+        if (max_pull<aux_pulls_field[i][j]) {
+          max_pull=aux_pulls_field[i][j];
+          max_pull_dir=j;
+        }
+      }
+      if (max_pull*2>=sum_weight) { // nasimuluj ci udelej presun asteroidu
+        diff_pos=direction_to_diff_pos(max_pull_dir);
+        new_pos=i+diff_pos;
+        if (aux_round==0) { //nasimuluj presun
+          // nepresouvam asteroid na zakladnu nejakeho hrace?
+          unsigned p=0;
+          while ((p<NUM_PLAYERS)&&
+                ((players[p].home_base.x!=new_pos%width)
+                  ||(players[p].home_base.y!=new_pos/width)))
+            p++;
+          if (p==NUM_PLAYERS) //zadny hrac nema na nove pozici zakladnu, zkus simulovat presun
+            aux_asteroid_field[new_pos]++;
+          else { // pridej body hraci (a nepresouvej asteroid jen jej smaz)
+            move_rockets_after_push(i, new_pos, moves, valid_move, valid_push);
+            players[p].points+=((unsigned)(field[i])-48);
+            field[i]=FIELD_EMPTY;
+          }
+        }
+        else {
+          if (aux_asteroid_field[new_pos]==1) {
+            move_rockets_after_push(i, new_pos, moves, valid_move, valid_push);
+            field[new_pos]=field[i];
+            field[i]=FIELD_EMPTY;
+          }
+          else
+            cerr << "Pokus tahnout asteroid na pozici [" << new_pos%width << "," << new_pos/width << "] (" << new_pos << ") selhal: konflikt v polohach asteroidu." << endl;
+        }
+      }
+    }
+  // napis chybne odpovedi pokud se tahnuti asteroidu nezdarilo
+  for (i = 0; i < NUM_PLAYERS; i++)
+    for (j = 0; j < RACKETS_PER_PLAYER; j++)
+      if ((!is_racket_shot(i,j))&&(valid_move[i][j])
+          &&(toupper(moves[i][j][0])==PULL_ACTION)&&(valid_push[i][j]==false)) {
+        cerr << "Neprovedena odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti asteroidu nevysel" << endl;
+        valid_move[i][j]=false;
+      }
+
+  /* neni konec hry = probehlo posledni kolo nebo dosli asteroidy */
+  _game_finished=((current_round >= total_rounds) || (!makes_sense_to_play()));
+
+
+  /* zapis na disk */
+  /* nejdriz zkanonizuj odpovedi do unifikovane formy */
+  canonize_moves(moves, valid_move);
+  if (write_to_disk)
+    write_playfield_to_disk(rewrite_original_file);
+}
+
+void PlayField::move_rockets_after_push(unsigned from, unsigned to,
+    string moves[NUM_PLAYERS][RACKETS_PER_PLAYER],
+    bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER],
+    bool (&valid_push)[NUM_PLAYERS][RACKETS_PER_PLAYER]) {
+  unsigned i,j,pos,new_pos;
+  for (i = 0; i < NUM_PLAYERS; i++)
+    for (j = 0; j < RACKETS_PER_PLAYER; j++)
+      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==PULL_ACTION)) {
+        pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
+	new_pos=pos+movement_to_diff_pos(toupper(moves[i][j][2]));
+	if ((from==pos)&&(to==new_pos)) {
+          players[i].rackets[j].x=new_pos%width;
+          players[i].rackets[j].y=new_pos/width;
+	  valid_push[i][j]=true;
+          add_moves_result(moves[i][j],field[from]);
+        }
+      }
+}
+
+void PlayField::canonize_moves (string moves[NUM_PLAYERS][RACKETS_PER_PLAYER], bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER]) {
+  for (unsigned i=0; i<NUM_PLAYERS; i++) {
+    players[i].last_move="(" + players[i].last_move + ")";
+    for (unsigned j=0; j<NUM_PLAYERS; j++) {
+      string robot_move = moves[i][j];
+      if (!valid_move[i][j])
+        robot_move = ERROR_ROBOT_MOVE;
+      for (unsigned k=0; (k<robot_move.length())&&(robot_move[k]!='('); k++)
+        if (k%2==0)
+        robot_move[k] = (k%2==0) ? (toupper(robot_move[k])) : (' ');
+      players[i].last_move = players[i].last_move + MOVES_DELIMETER + robot_move;
+    }
+//    players[i].last_move =  players[i].last_move + MOVES_DELIMETER + "(" + orig_answer + ")";
   }
 }
 
-void PlayField::get_points(unsigned points[])
-{
-  unsigned i;
-  for (i=0; i<NUM_PLAYERS; i++)
-  {
-    points[i] = fleets[i].points;
-  }
+void PlayField::get_player_points(unsigned points[]) {
+  for (unsigned i = 0; i < NUM_PLAYERS; i++)
+    points[i] = players[i].points;
 }

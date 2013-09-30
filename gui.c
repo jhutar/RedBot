@@ -3,392 +3,542 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <getopt.h>
 
-#define		MAP_SIZE		14
 #define		MAX_LINE_SIZE		256
+#define		NAME			"playfield.txt"
 
 GtkWidget *frame;
 GtkWidget *window;
-int number;
+int number = 1;
+gint tag;
+char directory[100];
+char pictures[100];
+char filename[100];
+int maxx, maxy;
 
-/* is on given coordinates ship segment?
- * 1 ... yes
- * 0 ... no
- */
-int is_ship(int map[MAP_SIZE][MAP_SIZE], int i, int j)
+
+GdkPixbuf *get_screenshot(const char *filename)
 {
-	if (((i >= 0) && (i <= MAP_SIZE-1)) &&
-		((j >= 0) && (j <= MAP_SIZE-1)) &&
-		((map[i][j] == '1') ||
-		(map[i][j] == '2') ||
-		(map[i][j] == '*') ||
-		(map[i][j] == '+'))) {
-		return 1;
-	} else {
-		return 0;
-	}
+    GdkPixbuf *screenshot;
+    GdkWindow *root_window;
+    GError *perror = NULL;
+
+    root_window = window->window;
+    screenshot = gdk_pixbuf_get_from_drawable (NULL, root_window, 0, 0, 0, 0, 0, 600-10, 400-10);
+    perror=NULL;
+    gdk_pixbuf_save(screenshot, filename, "bmp", &perror,"quality", "100",NULL);
+    return screenshot;
 }
 
-/* read which ship segment have to be shown based on
- * situation of neighbourng fiekds
- * return the segment code - eg. 1000
- */
-char *read_ship_segment(int map[MAP_SIZE][MAP_SIZE],
-	int i, int j, char label_text[10])
-{
-	/* left */
-	if (is_ship(map, i, j-1) == 0)
-		label_text[0] = '0';
-	else
-		label_text[0] = '1';
-
-	/* right */
-	if (is_ship(map, i, j+1) == 0)
-		label_text[1] = '0';
-	else
-		label_text[1] = '1';
-
-	/* left */
-	if (is_ship(map, i-1, j) == 0)
-		label_text[2] = '0';
-	else
-		label_text[2] = '1';
-
-	/* right */
-	if (is_ship(map, i+1, j) == 0)
-		label_text[3] = '0';
-	else
-		label_text[3] = '1';
-
-}
-
-
-int bomb(int i, int j, char *name)
+int chybny_tah(int hrac, int x, int y)
 {
 	GtkWidget *image;
-	if ((i < 0) || (i > MAP_SIZE-1) ||
-		(j < 0) || (j > MAP_SIZE-1)) {
-		return 1;
+
+	sprintf(filename,"%spic/%dlodu.png",pictures, hrac+1);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+}
+
+int let(int hrac, int raketa, int x, int y, char t1,char t2)
+{
+	GtkWidget *image;
+
+	// druhy krok
+	switch (t2) {
+		case 'L':{
+			sprintf(filename,"%spic/%dlodl.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y-2+4*raketa);
+			break;
+		}
+		case 'P':{
+			sprintf(filename,"%spic/%dlodp.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y-2+4*raketa);
+			break;
+		}
+		case 'N': {
+			sprintf(filename,"%spic/%dlodu.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x-2+4*raketa, 20+32*y);
+			break;
+		}
+		default: { /* slo se dolu nebo byl zadan jen jeden krok */
+			sprintf(filename,"%spic/%dlodd.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x-2+4*raketa, 20+32*y);
+			break;
+		}
 	}
-	image = gtk_image_new_from_file(name);
-	gtk_fixed_put(GTK_FIXED(frame), image, 180+j*22, 20+i*22);
-	return 0;
+
+}
+
+int blok(int hrac, int x, int y)
+{
+	GtkWidget *image;
+
+	sprintf(filename,"%spic/%dlodu.png", pictures, hrac+1);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+	sprintf(filename,"%spic/%dlodblok.png", pictures, hrac+1);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+}
+
+int strela(int hrac, int x, int y, char kam, char delka, char res)
+{
+	GtkWidget *image;
+	int i = 0;
+	int d;
+
+	d =((int)delka)-48;
+	
+	if (res == 'o') {
+		d = d-1;
+	}
+
+	image = gtk_image_new_from_file("pic/strela.png");
+
+	switch (kam) {
+		case 'L':
+			sprintf(filename,"%spic/%dlodl.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+			x--;
+			while (i<d) {
+				sprintf(filename,"%spic/xstrela.png", pictures, hrac+1);
+				image = gtk_image_new_from_file(filename);
+				gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+				x--;
+				i++;
+			}
+			x++;
+			break;
+		case 'P':
+			sprintf(filename,"%spic/%dlodp.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+			x++;
+			while (i<d) {
+				sprintf(filename,"%spic/xstrela.png", pictures);
+				image = gtk_image_new_from_file(filename);
+				gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+				x++;
+				i++;
+			}
+			x--;
+			break;
+		case 'N':
+			sprintf(filename,"%spic/%dlodu.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+			y--;
+			while (i<d) {
+				sprintf(filename,"%spic/ystrela.png", pictures);
+				image = gtk_image_new_from_file(filename);
+				gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+				y--;
+				i++;
+			}
+			y++;
+			break;
+		case 'D':
+			sprintf(filename,"%spic/%dlodd.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+			y++;
+			while (i<d) {
+				sprintf(filename,"%spic/ystrela.png", pictures);
+				image = gtk_image_new_from_file(filename);
+				gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+				y++;
+				i++;
+			}
+			y--;
+			break;
+	}
+	if (res == 'z') {
+		sprintf(filename,"%spic/vybuch.png", pictures);
+		image = gtk_image_new_from_file(filename);
+		gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+	}
 }
 
 
-/* read battlefield.txt.xy and draw the battle state
+int tah(int hrac, int raketa, int x, int y, char kam, char v)
+{
+	GtkWidget *image;
+	int vaha;
+
+	if (v == '1')
+		vaha = 1;
+	else
+		vaha = 2;
+
+	switch (kam) {
+		case 'L':{
+			sprintf(filename,"%spic/mlha.png", pictures);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*(x+1), 20+32*y);
+			sprintf(filename,"%spic/%dlodltahne.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y-2+4*raketa);
+			break;
+		}
+		case 'P':{
+			sprintf(filename,"%spic/mlha.png", pictures);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*(x-1), 20+32*y);
+			sprintf(filename,"%spic/%dlodptahne.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y-2+4*raketa);
+			break;
+		}
+		case 'N': {
+			sprintf(filename,"%spic/mlha.png", pictures);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*(y+1));
+			sprintf(filename,"%spic/%dlodutahne.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x-2+4*raketa, 20+32*y);
+			break;
+		}
+		case 'D': {
+			sprintf(filename,"%spic/mlha.png", pictures);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*(y-1));
+			sprintf(filename,"%spic/%dloddtahne.png", pictures, hrac+1);
+			image = gtk_image_new_from_file(filename);
+			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x-2+4*raketa, 20+32*y);
+			break;
+		}
+	}
+
+	sprintf(filename,"%spic/asteroid%d.png", pictures, vaha);
+	image = gtk_image_new_from_file(filename);
+
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
+	
+}
+
+
+/* read input file  and draw the battle state
  * based on it
  */
 int show_battlefield(FILE *f)
 {
-	char label_text[20];
-	GtkWidget *image;
-	char *file_name;
-	int ret = 0;
-	int i, j;
-	int len;
 	char line[MAX_LINE_SIZE];
-	char *pos, *pos2, *pos3;
-	int map[MAP_SIZE][MAP_SIZE];
-	char c, d;
-	char *name;
-	int first;
+
+	GtkWidget *image;
 	GtkWidget *label;
+	char label_text[20];
 
-	/* skip the number of rounds */
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
-	}
+	int i, j;
 
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
-	}
-	sscanf(line, "points: %d %d", &i, &j);
+	unsigned body;
+	char filename[100];
+	int z[2][2], r[2][2][2];
+	int hrac, raketa;
+	char *odpoved1, *odpoved2;
+	char t[2][2][20];
+	char c;
+	int map_size_x = 10;
+	int map_size_y = 10;
 
-	image = gtk_image_new_from_file("pic/nic.jpg");
-	gtk_fixed_put(GTK_FIXED(frame), image, 10, 40);
-	sprintf(label_text, "body: %d", i);
+	/* preskoc pocet kol */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
+
+	/* preskoc rozsah pole */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
+
+	/* informace o 1. hraci */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
+
+	sscanf(line, "Hrac 1: Body:%d Zakladna:[%d,%d] Rakety:[%d,%d]:[%d,%d]",
+		&body, &z[0][0], &z[0][1], &r[0][0][0], &r[0][0][1], &r[0][1][0], &r[0][1][1]);
+
+	sprintf(filename,"%spic/body.png", pictures);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 50, 40);
+	sprintf(label_text, "body: %d", body);
 	label = gtk_label_new(label_text);
-	gtk_fixed_put(GTK_FIXED(frame), label, 10, 40);
+	gtk_fixed_put(GTK_FIXED(frame), label, 50, 40);
 
-	image = gtk_image_new_from_file("pic/nic.jpg");
-	gtk_fixed_put(GTK_FIXED(frame), image, 10, 120);
-	sprintf(label_text, "body: %d", j);
+	/* informace o 2. hraci */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
+
+	sscanf(line, "Hrac 2: Body:%d Zakladna:[%d,%d] Rakety:[%d,%d]:[%d,%d]",
+		&body, &z[1][0], &z[1][1],  &r[1][0][0], &r[1][0][1], &r[1][1][0], &r[1][1][1]);
+
+	sprintf(filename,"%spic/body.png", pictures);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 50, 120);
+	sprintf(label_text, "body: %d", body);
 	label = gtk_label_new(label_text);
-	gtk_fixed_put(GTK_FIXED(frame), label, 10, 120);
+	gtk_fixed_put(GTK_FIXED(frame), label, 50, 120);
 
-	/* skip the number of charges */
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
-	}
-	sscanf(line, "charges: %d %d", &i, &j);
+	/* uloz tahy 1. hrace */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
 
-	sprintf(label_text, "peníze: %d", i);
-	label = gtk_label_new(label_text);
-	gtk_fixed_put(GTK_FIXED(frame), label, 10, 60);
+	odpoved1 = strchr(line, ')');
+	if (odpoved1 == NULL)
+		return 2;
+	odpoved1 = odpoved1 +2;
 
-	sprintf(label_text, "peníze: %d", j);
-	label = gtk_label_new(label_text);
-	gtk_fixed_put(GTK_FIXED(frame), label, 10, 140);
-
-
-	/* skip the first line of tabular */
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
+	odpoved2 = strchr(odpoved1, ':');
+	if (odpoved2 == NULL) {
+		return 2;
 	}
 
-	/* read the map */
-	for (i = 0; i < MAP_SIZE; i++) {
-		c = fgetc(f); /* skip the first character on each row */
-		for (j = 0; j < MAP_SIZE; j++)
-			map[i][j] = fgetc(f);
-		fgets(line, MAX_LINE_SIZE, f); /* skip the rest of the row */
-	}
-	/* draw the map */
-	for (i = 0; i < MAP_SIZE; i++) {
-		for (j = 0; j < MAP_SIZE; j++) {
-			sprintf(label_text, "%c", map[i][j]);
-			if ((map[i][j] == ' ') ||
-				(map[i][j] == '.')) {
-				sprintf(label_text, "pic/sea.jpg");
-			}
+	odpoved2[0] = '\0';
+	strcpy(t[0][0], odpoved1);
+	odpoved2[0] = ':';
+	odpoved2 = odpoved2 +1;
+	strcpy(t[0][1], odpoved2);
 
-			if (map[i][j] == '*') {
-				sprintf(label_text, "pic/3");
-				read_ship_segment(map, i, j, &label_text[5]);
-				strcpy(&label_text[9], ".jpg");
-			}
-			if (map[i][j] == '+') {
-				sprintf(label_text, "pic/4");
-				read_ship_segment(map, i, j, &label_text[5]);
-				strcpy(&label_text[9], ".jpg");
-			}
-			if (map[i][j] == '1') {
-				sprintf(label_text, "pic/1");
-				read_ship_segment(map, i, j, &label_text[5]);
-				strcpy(&label_text[9], ".jpg");
-			}
-			if (map[i][j] == '2') {
-				sprintf(label_text, "pic/2");
-				read_ship_segment(map, i, j, &label_text[5]);
-				strcpy(&label_text[9], ".jpg");
+	/* uloz tahy 2. hrace */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 2;
+
+	odpoved1 = strchr(line, ')');
+	if (odpoved1 == NULL)
+		return 2;
+	odpoved1 = odpoved1 +2;
+
+	odpoved2 = strchr(odpoved1, ':');
+	if (odpoved2 == NULL) {
+		return 2;
+	}
+	odpoved2[0] = '\0';
+	strcpy(t[1][0], odpoved1);
+	odpoved2[0] = ':';
+	odpoved2 = odpoved2 +1;
+	strcpy(t[1][1], odpoved2);
+	/* nacti mapu */
+	for (i = 0; i < maxy; i++) {
+		for (j = 0; j < maxx; j++) {
+			c = fgetc(f);
+			switch (c) {
+				case ' ': {
+					sprintf(label_text, "%spic/nic.png", pictures);
+					break;
+				}
+				case '1': {
+					sprintf(label_text, "%spic/nic.png", pictures);
+					image = gtk_image_new_from_file(label_text);
+					gtk_fixed_put(GTK_FIXED(frame), image, 180+j*32, 20+i*32);
+					sprintf(label_text, "%spic/asteroid1.png", pictures);
+					break;
+				}
+				case '2': {
+					sprintf(label_text, "%spic/nic.png", pictures);
+					image = gtk_image_new_from_file(label_text);
+					gtk_fixed_put(GTK_FIXED(frame), image, 180+j*32, 20+i*32);
+					sprintf(label_text, "%spic/asteroid2.png", pictures);
+					break;
+				}
 			}
 			image = gtk_image_new_from_file(label_text);
 			gtk_fixed_put(GTK_FIXED(frame), image,
-				180+j*22, 20+i*22);
+				180+j*32, 20+i*32);
 		}
-	}
-	/* last row of table */
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
-	}
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
-	}
-	/* first player action  draw bomb/torpedo/firework*/
-	len = strlen(line);
-	pos = strchr(line, ')');
-	pos[0] = '\0';
-	label = gtk_label_new(&line[9]);
-	pos[0] = ')';
-	gtk_fixed_put(GTK_FIXED(frame), label, 70, 20);
-	pos3 = strstr(line, "last command: ");
-	if (pos3 != NULL)
-		pos3 = pos3+15;
-
-	if ((len > 30) && (pos3 != NULL)) {
-		if  (pos3[0] == 'm') {
-			len = sscanf(&pos3[0], "m %d %d", &j, &i);
-			bomb(i, j, "pic/1bomb.png");
-		}
-		if (pos3[0] == 'b') {
-			len = sscanf(&pos3[0], "b %d %d", &j, &i);
-			bomb(i, j, "pic/1bombd.png");
-			bomb(i+1, j,  "pic/1bombc.png");
-			bomb(i, j+1, "pic/1bomba.png");
-			bomb(i+1, j+1, "pic/1bombb.png");
-		}
-		if (pos3[0] == 't') {
-			len = sscanf(&pos3[0], "t %*d %*d %c", &c);
-			pos = strchr(&pos3[0], ':');
-			pos++;
-			len = sscanf(pos, " %d,%d(%c)", &j, &i, &d);
-			while (len == 3) {
-				if ((d != '2') && (d != '1')) {
-					if ((c == 'l') || (c == 'r'))
-						bomb(i, j, "pic/1torpedoa.png");
-					else
-						bomb(i, j, "pic/1torpedob.png");
-				}
-
-				if ((d == '1') || (d == '2'))
-					bomb(i, j, "pic/1bomb.png");
-
-				pos2 = strchr(&pos[1], ')');
-
-				if (pos2 != NULL) {
-					pos = pos2+2;
-					len = sscanf(pos, "%d,%d(%c)",
-						&j, &i, &d);
-				} else {
-					len = 0;
-				}
-			}
-		}
-		if (pos3[0] == 'f') {
-			pos = strchr(&pos3[0], ':');
-			pos++;
-			len = sscanf(pos, " %d,%d(%c)", &j, &i, &d);
-			first = 1;
-			while (len == 3) {
-				if (first == 1) {
-					first = 0;
-					bomb(i, j, "pic/1fire.png");
-				} else {
-					bomb(i, j, "pic/1bomb.png");
-				}
-				pos2 = strchr(&pos[1], ')');
-				if (pos2 != NULL) {
-					pos = pos2+2;
-					len = sscanf(pos, "%d,%d(%c)",
-						&j, &i, &d);
-				} else {
-					len = 0;
-				}
-			}
-		}
-	}
-	if (fgets(line, MAX_LINE_SIZE, f) == NULL) {
-		ret = 2;
-		goto end;
+		fgetc(f); /* preskoc znak konce radku */
 	}
 
-	len = strlen(line);
-	pos = strchr(line, ')');
-	pos[0] = '\0';
-	label = gtk_label_new(&line[9]);
-	pos[0] = ')';
+	// vykresli zakladny
+	sprintf(filename,"%spic/1zakladna.png", pictures);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*z[0][0], 20+32*z[0][1]);
+	sprintf(filename,"%spic/2zakladna.png", pictures);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180+32*z[1][0], 20+32*z[1][1]);
 
-	gtk_fixed_put(GTK_FIXED(frame), label, 70, 100);
-	pos3 = strstr(line, "last command: ");
-	if (pos3 != NULL)
-		pos3 = pos3+15;
+	// vykresli tahy -----------------------------------------------------
 
-	/* second player action  draw bomb/torpedo/firework*/
-	if ((len > 30)  && (pos3 != NULL)) {
-		if  (pos3[0] == 'm') {
-			len = sscanf(&pos3[0], "m %d %d", &j, &i);
-			bomb(i, j, "pic/2bomb.png");
-		}
-		if (pos3[0] == 'b') {
-			len = sscanf(&pos3[0], "b %d %d", &j, &i);
-			bomb(i, j, "pic/2bombd.png");
-			bomb(i+1 , j, "pic/2bombc.png");
-			bomb(i, j+1, "pic/2bomba.png");
-			bomb(i+1, j+1, "pic/2bombb.png");
-		}
-		if (pos3[0] == 't') {
-			len = sscanf(&pos3[0], "t %*d %*d %c", &c);
-			pos = strchr(&pos3[0], ':');
-			pos++;
-			len = sscanf(pos, " %d,%d(%c)", &j, &i, &d);
-			while (len == 3) {
-				if ((d != '2') && (d != '1')) {
-					if ((c == 'l') || (c == 'r'))
-						bomb(i, j, "pic/2torpedoa.png");
-					else
-						bomb(i, j, "pic/2torpedob.png");
-				}
-
-				if ((d == '1') || (d == '2'))
-					bomb(i, j, "pic/2bomb.png");
-
-				pos2 = strchr(&pos[1], ')');
-				if (pos2 != NULL) {
-					pos = pos2+2;
-					len = sscanf(pos, "%d,%d(%c)",
-						&j, &i, &d);
-				} else
-					len = 0;
-
-			}
-		}
-		if (pos3[0] == 'f') {
-			pos = strchr(&pos3[0], ':');
-			pos++;
-			len = sscanf(pos, " %d,%d(%c)", &j, &i, &d);
-			first = 1;
-			while (len == 3) {
-				if (first == 1) {
-					first = 0;
-					bomb(i, j, "pic/2fire.png");
-				} else {
-					bomb(i, j, "pic/2bomb.png");
-				}
-
-				pos2 = strchr(&pos[1], ')');
-				if (pos2 != NULL) {
-					pos = pos2+2;
-					len = sscanf(pos, "%d,%d(%c)",
-						&j, &i, &d);
-				} else
-					len = 0;
-
-			}
+	// chybny tah
+	for (i = 0; i<4; i++) {
+		if ((t[i / 2][i % 2])[0] == 'E') {
+			// raketa [i / 2][i % 2] udella chybny tah
+			chybny_tah((i/2), (r[i/2][i%2][0]), (r[i/2][i%2][1]));
 		}
 	}
-end:
-	return ret;
+
+	// vykresli let
+	for (i = 0; i<4; i++) {
+		if ((t[i / 2][i % 2])[0] == 'L') {
+			// raketa [i / 2][i % 2] leti
+			let((i/2), (i%2), r[i/2][i%2][0], (r[i/2][i%2][1]), (t[i/2][i%2])[2], (t[i/2][i%2])[4]);
+		}
+	}
+
+	// vykresli blokovani
+	for (i = 0; i<4; i++) {
+		if ((t[i / 2][i % 2])[0] == 'B') {
+			// raketa [i / 2][i % 2] blokuje
+			blok((i/2), r[i/2][i%2][0], (r[i/2][i%2][1]));
+		}
+	}
+
+	// vykresli strelbu
+	for (i = 0; i<4; i++) {
+		if ((t[i / 2][i % 2])[0] == 'S') {
+			// raketa [i / 2][i % 2] strili
+			strela((i/2), r[i/2][i%2][0], (r[i/2][i%2][1]), (t[i/2][i%2])[2], (t[i/2][i%2])[5], (t[i/2][i%2])[7]);
+		}
+	}
+
+	// vyresli tahnuti
+	for (i = 0; i<4; i++) {
+		if ((t[i / 2][i % 2])[0] == 'T') {
+			// raketa [i / 2][i % 2] strili
+			tah((i/2), i%2, r[i/2][i%2][0], (r[i/2][i%2][1]), (t[i/2][i%2])[2], t[i/2][i%2][5]);
+		}
+	}
+
+	return 0;
 }
 
-gint gtk_show_battlefield(gpointer data)
+gint gtk_show_battlefield()
 {
+	GtkWidget *image;
+	GtkWidget *label;
+	char label_text[20];
+
 	char file_name[64];
 	FILE *f;
 
-	sprintf(file_name, "game/battlefield.txt.%d", number);
+	// nastav jmen vstupniho souboru
+	if (number < 10)
+		sprintf(file_name, "%sgame/%s.000%d", directory, NAME, number);
+	else
+		if (number < 1000)
+			sprintf(file_name, "%sgame/%s.00%d", directory, NAME, number);
+		else
+			sprintf(file_name, "%sgame/%s.0%d", directory, NAME, number);
+
+	// otevri vstupni soubor
 	f = fopen(file_name, "r");
-	if (f != NULL) {
-		show_battlefield(f);
-		fclose(f);
-		gtk_widget_show_all(frame);
+	if (f == NULL) {
 		number++;
+		fprintf(stderr, "Soubor %s nelze zobrazit.\n", file_name);
+		g_source_remove(tag);
+		return;
 	}
+
+	sprintf(filename,"%spic/body.png", pictures);
+	image = gtk_image_new_from_file(filename);
+	gtk_fixed_put(GTK_FIXED(frame), image, 180, 0);
+	sprintf(label_text, "kolo: %d", number);
+	label = gtk_label_new(label_text);
+	gtk_fixed_put(GTK_FIXED(frame), label, 180, 0);
+
+	// zobraz data ze vstupniho souboru
+	show_battlefield(f);
+
+	fclose(f);
+
+	gtk_widget_show_all(frame);
+
+	// vtvor sceenshot zobrazene situace
+	sprintf(file_name, "%sgame/%s%d.bmp", directory, NAME, number);
+	get_screenshot(file_name);
+
+	number++;
 }
 
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-	int i, j;
+	int i, j, s;
 	GtkWidget *label_hrac1, *label_hrac2, *image;
 	int counter;
-	gint tag;
+	char c;
+	char file_name[MAX_LINE_SIZE];
+	char line[MAX_LINE_SIZE];
+	FILE *f;
 
+	directory[0]='\0';
+
+	/* nacti parametry */
+	while ((c = getopt (argc, argv, "d:p:")) != -1)
+		switch (c) {
+			case 'd':
+				strncpy(directory, optarg, 99);
+				directory[99]='\0';
+				s = strlen(directory);
+				if (s < 99) {
+					directory[s]='/';
+					directory[s+1]='\0';
+				}
+				break;
+			case 'p':
+				strncpy(pictures, optarg, 99);
+				pictures[99]='\0';
+				s = strlen(pictures);
+				if (s < 99) {
+					pictures[s]='/';
+					pictures[s+1]='\0';
+				}
+				break;
+			default:
+				fprintf(stderr,
+					"neznamy parametr (mozne parametry: -d <jmeno adresare s zaznamem hry> -p <jmeno adresare s grafikou>)\n");
+				abort();
+		}
 	gtk_init(&argc, &argv);
+
+	/* nacti velikost hraciho planu */
+	/* otevri playfield soubor */
+	snprintf(file_name, MAX_LINE_SIZE-1,  "%sgame/%s.0000", directory, NAME);
+	file_name[MAX_LINE_SIZE-1]='\0';
+	f = fopen(file_name, "r");
+	if (f == NULL) {
+		fprintf(stderr, "Soubor %s nelze zobrazit.\n", file_name);
+		return 1;
+	}
+
+	/* vynech prvni radek */
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 1;
+
+	/* nacti hodnoty max_x a max_y*/
+	if (fgets(line, MAX_LINE_SIZE, f) == NULL)
+		return 1;
+
+	ret = sscanf(line,"%d %d",&maxx,&maxy);
+	if (ret != 2)
+		return 1;
+
+	fclose(f);
+
+	/* vykresli grafiku okna */
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(window), "lodě\n");
-	gtk_window_set_default_size(GTK_WINDOW(window), 600, 400);
+	gtk_window_set_title(GTK_WINDOW(window), "Red Bot - podzim 2013 (asteoidy)\n");
+	gtk_window_set_default_size(GTK_WINDOW(window), 220+32*maxx, 50+32*maxy);
 	gtk_widget_show(window);
 
 	frame = gtk_fixed_new();
 	gtk_container_add(GTK_CONTAINER(window), frame);
 
 	label_hrac1 = gtk_label_new("hrac:");
-	gtk_fixed_put(GTK_FIXED(frame), label_hrac1, 30, 20);
-	image = gtk_image_new_from_file("pic/1bomb.png");
+	gtk_fixed_put(GTK_FIXED(frame), label_hrac1, 50, 20);
+	sprintf(filename,"%spic/1zakladna.png", pictures);
+	image = gtk_image_new_from_file(filename);
 	gtk_fixed_put(GTK_FIXED(frame), image, 10, 20);
 	label_hrac2 = gtk_label_new("hrac:");
-	gtk_fixed_put(GTK_FIXED(frame), label_hrac2, 30, 100);
-	image = gtk_image_new_from_file("pic/2bomb.png");
+	gtk_fixed_put(GTK_FIXED(frame), label_hrac2, 50, 100);
+	sprintf(filename,"%spic/2zakladna.png", pictures);
+	image = gtk_image_new_from_file(filename);
 	gtk_fixed_put(GTK_FIXED(frame), image, 10, 100);
 
-	tag = g_timeout_add(500, gtk_show_battlefield, &number);
+	tag = g_timeout_add(1000, gtk_show_battlefield, &number);
 
 	g_signal_connect_swapped(G_OBJECT(window), "destroy",
 		G_CALLBACK(gtk_main_quit), NULL);
@@ -396,5 +546,5 @@ int main(int argc, char *argv[])
 
 	gtk_main();
 
-	return ret;
+	return 0;
 }

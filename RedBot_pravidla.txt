@@ -1,0 +1,63 @@
+Základní pravidla:
+------------------
+Dva týmy meziplanetárních raket soupeří proti sobě o to, kdo získá víc asteroidů.
+Oba týmy se pohybují po čtvercové síti, na níž jsou umístěné asteroidy. Každý tým má k dispozici 2 rakety které můžou střílet, bránit se, pohybovat se a nebo táhnout asteroid. Rakety můžou kooperovat. Vyhrává ten tým, který dopraví víc asteroidů na svoji základnu.
+
+* hraje se kolově
+* hrací pole je čtvercová síť, jednotlivá políčka mají souřadnice od [0,0] (levý horní roh), osa "x" je levo-pravá, osa "y" je zhora-dolů
+* na jednom plánu hrají dva soupeři, každý má svoji základnu se dvěmi raketami (na začátku v základně)
+* na plánu jsou rozmístěny asteroidy váhy 1 nebo 2
+* v libovolném okamžiku může být na jakémkoliv políčku více raket (i z různých týmů), asteroid a základna. Na jednom políčku ale nemůže být více asteroidů zároveň
+* v každém kole může hráč provést každou ze svých raket právě jeden tah z následujících:
+	název akce	formát zápisu
+	leť		"l {l,p,n,d} {l,p,n,d}" (pro let o 2 pole) nebo "l {l,p,n,d}" (pro let o 1 pole)
+	táhni		t {l,p,n,d}
+	střílej		s {l,p,n,d}
+	braň se		b
+ (Příklad tahu hráče je tedy třeba "l l n:b")
+* V každém kole se akce vyhodnocují v níže uvedeném pořadí simultánně pro všechny rakety (takže např. dvě rakety se můžou zastřelit navzájem):
+  * leť: všechny rakety se přesunou o 1 nebo 2 pole v uvedeném směru
+  * braň se zapnutím štítů: chrání všechny rakety na daném políčku před střelbou
+  * střílej: pokud raketa vystřelí daným směrem, poškodí první raketu ve směru střelby. Pokud na zasaženém políčku stojí více raket, je zasažena náhodná z nich. Pokud se kterákoliv raketa na zasaženém políčku bránila spuštěním svých štítů, střela byla neúspěšná a nikdo nebyl zasažen. V případě zásahu se zasažená raketa znovu objeví na své základně a její akce se neprovede (pokud už nebyla provedena). Další kolo už raketa normálně hraje (z políčka základny).
+  * táhni asteroid: Pokud na místě rakety leží asteroid a je tažen dostatečnou silou, přesune se raketa spolu s asteroidem. V opačném případě jde o chybný tah.
+    * váha asteroidu říká, kolik raket musí zároveň táhnout asteroid jedním směrem, aby se ten posunul.
+    * pokud nějaká (nemusí to být cizí) raketa v daném kole táhne daný asteroid jiným směrem, ztěžuje o 1 možnost jeho posunutí. Tedy asteroid je posunut, pouze když je tažen alespoň tolika raketami, kolik je jeho hmotnost zvýšená o pokusy jej odtáhnout v jiných směrech.
+    * pokud je asteroid dotažen na základnu, tak mizí, a daný tým získává počet bodů rovný (klidové) váze asteroidu
+    * přesun asteroidu se nepovede na to políčko (mimo základnu), kde nějaký asteroid ležel na začátku kola anebo pokud je tam jiný přetahován. V takovém případě zůstávají stát i rakety které jej táhnou.
+* hraje se na daný počet kol a dokud je nějaký asteroid ve hře
+* vyhraje ten tým, který má na konci hry více bodů
+
+
+Technická / implementační pravidla:
+-----------------------------------
+Úkolem je implementovat program, který má na vstupu 1 argument s ID hráče (1 nebo 2), a na standardní výstup odpoví do 3 vteřin jednořádkovou odpověď.
+
+Program bude mít ve svém pracovním adresáři na začátku každého kola nový soubor "playfield.txt" popisující hrací plán. Příklad hracího plánu:
+
+2 3
+10 10
+Hrac 1: Body:0 Zakladna:[7,3] Rakety:[7,3]:[6,3]
+Hrac 2: Body:0 Zakladna:[9,9] Rakety:[7,9]:[9,9]
+Odpoved hrace 1:(spatna odpoved):E:E
+Odpoved hrace 2:(s n:l l n):S N:L L N
+         1
+        2 
+       1  
+      1   
+     2    
+    2     
+   1      
+  1       
+ 2        
+1         
+
+kde:
+- "2 3" značí aktuální kolo a celkový počet kol
+- "10 10" značí šířku a výšku hracího plánu
+- řádky "Hrac .." jsou zřejmé (s tím, že levý horní roh má souřadnice [0,0])
+- řádky "Odpoved hrace .." obsahují za dvojtečkou v závorkách původní odpověď a za další dvojtečkou její kanonizovanou variantu
+  - odpověď hráče může být prázdná (v prvním souboru před prvním kolem)
+- další řádky popisují rozmístění asteroidů na hracím plánu - číslo znamená jeho váhu
+
+
+Předpokládaný výstup programu jsou akce první a druhé rakety oddělené dvojtečkou. Formát zápisu akcí viz. základní pravidla.
