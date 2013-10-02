@@ -254,7 +254,7 @@ void PlayField::shot_to_racket(unsigned p, unsigned r) {
 bool PlayField::ok_to_move(unsigned pos, int dir) {
   return (((dir==-1)&&(pos%width>0)) //pohyb vlevo
         ||((dir==+1)&&(pos%width<width-1)) //pohyb vpravo
-        ||((dir==(int)(-width))&&(pos>width)) //pohyb nahoru
+        ||((dir==(int)(-width))&&(pos>=width)) //pohyb nahoru
         ||((dir==(int)(+width))&&(pos<width*height-width))); //pohyb dolu
 }
 
