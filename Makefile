@@ -21,7 +21,7 @@ main.o: main.cpp PlayField.o OptionParser.o
 	$(CC) $(CFLAGS) -c main.cpp -pthread
 
 gui: gui.c
-	$(G) `pkg-config --cflags --libs gtk+-2.0` -o $@ gui.c
+	$(G) `pkg-config --cflags gtk+-2.0` -o $@ gui.c `pkg-config --libs gtk+-2.0`
 
 clean:
 	rm -rf $(OBJECTS) $(EXECUTABLE) gui
