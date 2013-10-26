@@ -1,0 +1,16 @@
+0 5
+10 10
+Hrac1: Body:0 Zakladna:[0,0] Rakety:[0,0]:[0,0]
+Hrac2: Body:0 Zakladna:[9,9] Rakety:[9,9]:[9,9]
+Odpoved hrace 1:
+Odpoved hrace 2:
+         1
+        2 
+       1  
+      1   
+     2    
+    2     
+   1      
+  1       
+ 2        
+1         
