@@ -414,14 +414,17 @@ gint gtk_show_battlefield()
 	char file_name[64];
 	FILE *f;
 
-	// nastav jmen vstupniho souboru
+	// nastav jmeno vstupniho souboru
 	if (number < 10)
 		sprintf(file_name, "%sgame/%s.000%d", directory, NAME, number);
 	else
-		if (number < 1000)
+		if (number < 100)
 			sprintf(file_name, "%sgame/%s.00%d", directory, NAME, number);
 		else
-			sprintf(file_name, "%sgame/%s.0%d", directory, NAME, number);
+			if (number < 1000)
+				sprintf(file_name, "%sgame/%s.0%d", directory, NAME, number);
+			else
+				sprintf(file_name, "%sgame/%s.%d", directory, NAME, number);
 
 	// otevri vstupni soubor
 	f = fopen(file_name, "r");
