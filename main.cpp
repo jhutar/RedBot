@@ -89,6 +89,7 @@ typedef struct _thread_data_t
   int tid;
   response_t response;
   string binary_to_exe;
+  bool finished;
 } thread_data_t;
 
 
@@ -105,6 +106,7 @@ void *thr_func(void *arg)
 
   data = (thread_data_t *)arg;
   data->response[0] = '\0';
+  data->finished = false;
   /* open pipe to thread binary */
   pipe = popen(data->binary_to_exe.c_str(), "r");
   if (pipe == NULL)
@@ -121,6 +123,7 @@ void *thr_func(void *arg)
     }
   }
   pclose(pipe);
+  data->finished = true;
   pthread_exit(NULL);
 }
 
@@ -331,7 +334,7 @@ int main(int argc, char **argv)
 
       for (tid = 0; tid < NUM_PLAYERS; ++tid)
       {
-          all_responded &= (thr_data[tid].response[0] != '\0');
+          all_responded &= thr_data[tid].finished;
       }
 
       if (all_responded)
