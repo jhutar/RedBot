@@ -57,7 +57,7 @@ PlayField::PlayField(const string _filename, string _battlefield_dir) : filename
 
   /* nacti informace o hracich */
   for (i = 0; i < NUM_PLAYERS; i++ ) {
-    fscanf(fd,"Hrac%*u: Body:%u Zakladna:[%u,%u] Rakety", &(players[i].points), &(players[i].home_base.x), &(players[i].home_base.y));
+    fscanf(fd,"Hrac %*u: Body:%u Zakladna:[%u,%u] Rakety", &(players[i].points), &(players[i].home_base.x), &(players[i].home_base.y));
     for (j = 0; j < RACKETS_PER_PLAYER; j++) {
       fscanf(fd,"%c[%u,%u]", &c, &(players[i].rackets[j].x), &(players[i].rackets[j].y));
       players[i].rackets_shot[j]=false;
