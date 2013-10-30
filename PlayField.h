@@ -76,7 +76,7 @@ class PlayField
     void shot_to_racket(unsigned p, unsigned r);
     inline bool is_racket_shot(unsigned p, unsigned r)
     {
-      return players[p].rackets_shot[p];
+      return players[p].rackets_shot[r];
     }
     bool new_field_position(unsigned x, unsigned y, char direction,
                             unsigned & newpos);
