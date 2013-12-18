@@ -26,7 +26,7 @@ GdkPixbuf *get_screenshot(const char *filename)
     GError *perror = NULL;
 
     root_window = window->window;
-    screenshot = gdk_pixbuf_get_from_drawable (NULL, root_window, 0, 0, 0, 0, 0, 600-10, 400-10);
+    screenshot = gdk_pixbuf_get_from_drawable (NULL, root_window, 0, 0, 0, 0, 0, 220+32*maxx, 50+32*maxy);
     perror=NULL;
     gdk_pixbuf_save(screenshot, filename, "bmp", &perror,"quality", "100",NULL);
     return screenshot;
@@ -108,7 +108,7 @@ int strela(int hrac, int x, int y, char kam, char delka, char res)
 			gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
 			x--;
 			while (i<d) {
-				sprintf(filename,"%spic/xstrela.png", pictures, hrac+1);
+				sprintf(filename,"%spic/xstrela.png", pictures);
 				image = gtk_image_new_from_file(filename);
 				gtk_fixed_put(GTK_FIXED(frame), image, 180+32*x, 20+32*y);
 				x--;

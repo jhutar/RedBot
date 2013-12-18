@@ -195,7 +195,7 @@ int main(int argc, char **argv)
     fclose(fd);
 
     last_slash_pos = options.strategy[tid].find_last_of('/');
-    if ((last_slash_pos > 2) ||
+    if ((last_slash_pos > 1) ||
       ((last_slash_pos == 1) && options.strategy[tid][0] != '.'))
     {
       // options.strategy[tid] is in form directory/binary
