@@ -23,24 +23,34 @@
 
 #include "PlayField.h"
 #include <cstdlib>
-#include <iostream>
-#include <cstdio>
-#include <string>
-#include <list>
-#include <string.h>
-#include <assert.h>
+#include <fstream>
 #include <sstream>
+#include <string.h>
 
 using namespace std;
 
-PlayField::PlayField(const string _filename, string _battlefield_dir) : filename(_filename), battlefield_dir(_battlefield_dir)
+PlayField::PlayField(string _fields_dir, string _filename)
 {
-  field_loaded=false;
-  field=NULL;
+  unsigned i,j;
   FILE *fd;
-  unsigned i, j;
-  char c;
-  char response[RESPONSE_LENGTH*3];
+  unsigned lines_count;
+  town_t town;
+  shop_t shop;
+  response_t response;
+
+  _game_finished = false;
+  fields_dir = _fields_dir;
+  filename = _filename;
+  current_round = 0;
+  debug = false;
+
+  /* setup some players stuff */
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    players[i].last_response = "";
+    players[i].money = 0;
+    players[i].shops.clear();
+  }
 
   fd = fopen(filename.c_str(),"r");
   if (!fd) {
@@ -48,541 +58,301 @@ PlayField::PlayField(const string _filename, string _battlefield_dir) : filename
     return;
   }
 
-  /* nacti soucasne kolo a celkovy pocet kol */
-  fscanf(fd,"%u %u\n", &current_round, &total_rounds);
-
-  /* nacti sirku a vysku planu, alokuj hraci plan */
-  fscanf(fd,"%u %u\n", &width, &height);
-  field = new char [width*height];
-
-  /* nacti informace o hracich */
-  for (i = 0; i < NUM_PLAYERS; i++ ) {
-    fscanf(fd,"Hrac %*u: Body:%u Zakladna:[%u,%u] Rakety", &(players[i].points), &(players[i].home_base.x), &(players[i].home_base.y));
-    for (j = 0; j < RACKETS_PER_PLAYER; j++) {
-      fscanf(fd,"%c[%u,%u]", &c, &(players[i].rackets[j].x), &(players[i].rackets[j].y));
-      players[i].rackets_shot[j]=false;
+  fscanf(fd, "Kolo: %u\n", &current_round);
+  fscanf(fd, "Rozmer: %u\n", &field_size);
+  fscanf(fd, "Mesta: %u\n", &lines_count);
+  for (i=0; i<lines_count; i++)
+  {
+    fscanf(fd, "%u %u %u\n", &town.x, &town.y, &town.residents);
+    towns.push_back(town);
+  }
+  
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    fscanf(fd, "Hrac%u: %f euro %u obchodu\n", &j, &players[i].money, &lines_count);
+    for (j=0; j<lines_count; j++)
+    {
+      fscanf(fd, "%u %u %f %f\n", &shop.x, &shop.y, &shop.price, &shop.profit);
+      players[i].shops.push_back(shop);
     }
-    fgetc(fd);
   }
 
-  /* precti odpovedi hracu z minuleho kola */
-  for (i = 0; i < NUM_PLAYERS; i++ ) {
-    fscanf(fd,"Odpoved hrace %*u:");
-    fgets(response, RESPONSE_LENGTH*3, fd);
-    players[i].last_move = response;
-    players[i].last_move = players[i].last_move.substr(0,
-                             players[i].last_move.length() - 1); //odstran '\n'
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    fscanf(fd, "Hrac%u_odpoved: \"%s\"\n", &j, response);
+    players[i].last_response = response;
+    players[i].last_response = players[i].last_response.substr(0,players[i].last_response.length()-1); // fscanf precte i posledni \" do promenne 'response'
   }
-
-  /* nacti polohy asteroidu */
-  for (i = 0; i<height; i++) {
-    for (j = 0; j<width; j++) {
-      field[i*width+j] = fgetc(fd);
-    }
-    fgetc(fd);
-  }
-
   fclose(fd);
-  field_loaded=true;
-  write_playfield_to_disk(false);
 
-  _game_finished=((current_round >= total_rounds) || (!makes_sense_to_play()));
+  print_field();
 }
 
 
-PlayField::~PlayField() {
-  if (field) {
-    delete[] field;
-  }
-}
-
-/* if there already exist an asteroid returns true */
-bool PlayField::makes_sense_to_play() {
-  int i;
-
-  for (i = 0; i<RACKETS_PER_PLAYER; i++ ) {
-    if (strchr(field, FIELD_ASTEROID+i+1)!=NULL)
-      return true;
-  }
-
-  return false;
-}
-
-void PlayField::write_playfield_to_disk(bool rewrite_original_file)
+PlayField::~PlayField()
 {
-  string new_filename(filename);
+  unsigned i;
+  for (i=0; i<NUM_PLAYERS; i++)
+    players[i].shops.clear();
+}
+
+
+void PlayField::increase_current_round()
+{
+  unsigned i;
+  unsigned players_with_money = 0;
+
+  current_round++;
+  _game_finished |= (current_round == MAX_ROUNDS);
+  for (i=0; i<NUM_PLAYERS; i++)
+    if (players[i].money >=0)
+      players_with_money++;
+  _game_finished |= (players_with_money<2);
+}
+
+
+void PlayField::play_one_round(response_t* moves)
+{
+  unsigned i,j;
+  list<shop_t>::iterator shop_iter;
+  list<town_t>::iterator town_iter;
+  shop_weight_ptr_t *shop_weights;
+  unsigned total_shops = 0;
+  float weight_sum, aux_weight, rnd;
+  list<string> response_elems;
+  list<string>::iterator response_iter;
+  list<new_shop_t> new_shops;
+  list<new_shop_t>::iterator new_shops_iter;
+  new_shop_t new_shop;
+  unsigned shop_on_place[field_size*field_size];
+  bool move_ok[NUM_PLAYERS];
+  bool open_shop = false;
+
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    move_ok[i] = true;
+    stringstream ss(moves[i]);
+    string item;
+    while (std::getline(ss, item, CMD_SEPARATOR)) {
+        while (item[0]==' ')
+            item.erase(0,1);
+        response_elems.push_back(item);
+    }
+    response_iter=response_elems.begin();
+    /* set prices of shops */
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+    {
+      if ((response_iter==response_elems.end()) ||
+          (sscanf(response_iter->c_str(),"%f",&(shop_iter->price))==0))
+      {
+        move_ok[i]=false;
+        response_iter=response_elems.end();
+        cerr << "Hrac " << (i+1) << ": prilis malo cen v odpovedi \""
+             << moves[i] << "\" (obchodu ma " << players[i].shops.size()
+             << ")" << endl;
+        break;
+      }
+      ++response_iter;
+    }
+    /* destroy shops */
+    while (response_iter!=response_elems.end()
+            &&(sscanf(response_iter->c_str(),DEL_SHOP_CMD_FORMAT.c_str(), &new_shop.x, &new_shop.y)==2))
+    {
+      for (shop_iter=players[i].shops.begin();
+          (shop_iter!=players[i].shops.end())
+            &&((shop_iter->x!=new_shop.x)||(shop_iter->y!=new_shop.y));
+          ++shop_iter)
+        ;
+      if (shop_iter!=players[i].shops.end()) {
+        players[i].shops.erase(shop_iter);
+      }
+      else
+      {
+        move_ok[i]=false;
+        response_iter=response_elems.end();
+        cerr << "Hrac " << (i+1) << ": pokus o smazani neexistujiciho obchodu ["
+             << new_shop.x << "," << new_shop.y << "]" << endl;
+        break;
+      }
+      ++response_iter;
+    }
+    /* new shops */
+    while (response_iter!=response_elems.end()
+            &&(sscanf(response_iter->c_str(),NEW_SHOP_CMD_FORMAT.c_str(), &new_shop.x, &new_shop.y)==2))
+    {
+      new_shop.player=i;
+      new_shops.push_back(new_shop);
+      ++response_iter;
+    }
+    if ((response_iter!=response_elems.end()))
+    {
+      cerr << "Hrac " << (i+1) << ": neznamy prikaz " << response_iter->c_str() << endl;
+      move_ok[i]=false;
+    }
+    if (!move_ok[i])
+      for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+        shop_iter->price = (float)INVALID_PRICE;
+    response_elems.clear();
+  }
+  /* reset profits of shops, set player's response */
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    total_shops += players[i].shops.size();
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+      open_shop |= (shop_iter->price <= (float)MAX_PRICE);
+  }
+  if (total_shops>0)
+    shop_weights = new shop_weight_ptr_t[total_shops];
+  j=0;
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    players[i].last_response = moves[i];
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+    {
+      shop_iter->profit = -SHOP_MAINTENANCE;
+      shop_weights[j++].shop_iter=shop_iter;
+    }
+  }
+  /* decide where each inhabitant will go */
+  for (town_iter=towns.begin(); (town_iter!=towns.end())&&(open_shop); ++town_iter)
+  {
+    weight_sum=0;
+    if (debug)
+      cout << "Town: [" << town_iter->x << "," << town_iter->y << "]:" << endl;
+    for (i=0; i<total_shops; i++)
+    {
+      if (shop_weights[i].shop_iter->price <= (float)MAX_PRICE)
+        shop_weights[i].weight = (1.0 / (1 + abs((int)(shop_weights[i].shop_iter->x - town_iter->x))+abs((int)(shop_weights[i].shop_iter->y - town_iter->y))))
+                                 / (1 + shop_weights[i].shop_iter->price*shop_weights[i].shop_iter->price*shop_weights[i].shop_iter->price);
+      else
+        shop_weights[i].weight = 0;
+      weight_sum += shop_weights[i].weight;
+      if (debug)
+        cout << "  shop at [" << shop_weights[i].shop_iter->x << "," << shop_weights[i].shop_iter->y << "] has weight " << shop_weights[i].weight << ", weight_limit=" << weight_sum <<endl;
+    }
+    /* for each town resident, throw weighted dice where he will buy */
+    for (j=0; j<town_iter->residents; ++j)
+    {
+      rnd = weight_sum * rand() / RAND_MAX;
+      if (debug)
+        cout << "--- dice roll: " << rnd << endl;
+      aux_weight = 0;
+      i=0;
+      do
+      {
+        aux_weight += shop_weights[i++].weight;
+      }
+      while (aux_weight < rnd);
+      if (debug)
+        cout << "shop at [" << shop_weights[i-1].shop_iter->x << ","
+             << shop_weights[i-1].shop_iter->y << "] gets profit: "
+             << shop_weights[i-1].shop_iter->price - GOODS_COST - 1.0*shop_weights[i-1].shop_iter->price*shop_weights[i-1].shop_iter->price/MAX_PRICE
+             << " from town [" << town_iter->x << "," << town_iter->y << "]"
+             << endl;
+      shop_weights[i-1].shop_iter->profit += (shop_weights[i-1].shop_iter->price - GOODS_COST);
+    }
+  }
+  /* add money from shops profit to player's money */
+  for (i=0; i<NUM_PLAYERS; i++)
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+      players[i].money += shop_iter->profit;
+
+  /* add new shops */
+  /* count where all shops would be built if there is no conflict */
+  for (i=0; i<field_size*field_size; i++)
+    shop_on_place[i]=0;
+  for (i=0; i<NUM_PLAYERS; i++)
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+      shop_on_place[shop_iter->y*field_size+shop_iter->x]++;
+  for (new_shops_iter=new_shops.begin(); new_shops_iter!=new_shops.end(); ++new_shops_iter)
+    shop_on_place[new_shops_iter->y*field_size+new_shops_iter->x]++;
+  
+  for (new_shops_iter=new_shops.begin(); new_shops_iter!=new_shops.end(); ++new_shops_iter)
+    if (shop_on_place[new_shops_iter->y*field_size+new_shops_iter->x]==1)
+      add_shop(new_shops_iter);
+    else
+      cerr << "Hrac " << new_shops_iter->player+1 << ": konflikt s umistenim obchodu ["
+           << new_shops_iter->x << "," << new_shops_iter->y << "]" << endl;
+  new_shops.clear();
+  increase_current_round();
+  print_field();
+}
+
+void PlayField::add_shop(list<new_shop_t>::iterator new_shop)
+{
+  shop_t shop;
+  list<shop_t>::iterator shop_iter = players[new_shop->player].shops.begin();
+  while ((shop_iter!=players[new_shop->player].shops.end())
+          &&((shop_iter->y < new_shop->y)
+            ||((shop_iter->y == new_shop->y)&&(shop_iter->x < new_shop->x))))
+    ++shop_iter;
+
+  shop.x=new_shop->x;
+  shop.y=new_shop->y;
+  shop.price=INVALID_PRICE;
+  shop.profit=0;
+
+  players[new_shop->player].money -= SHOP_BUILD_PRICE;
+
+  if (shop_iter!=players[new_shop->player].shops.end())
+    players[new_shop->player].shops.insert(shop_iter,shop);
+  else
+    players[new_shop->player].shops.push_back(shop);
+}
+
+void PlayField::print_field()
+{
+  unsigned i;
+  list<town_t>::iterator town_iter;
+  list<shop_t>::iterator shop_iter;
+  string new_filename = filename;
+  char s[20], s2[20];
+  FILE *fd;
   size_t last_dir_delim = filename.find("/");
+
   if (last_dir_delim != string::npos)
     new_filename = filename.substr(last_dir_delim+1);
-  char s[10], s2[10];
-  FILE *fd;
-  unsigned i, j;
 
-  if (!(rewrite_original_file)) {
-    sprintf(s, ".%04d", current_round-1);
-    sprintf(s2, ".%04d", current_round);
-    if (new_filename.rfind(s) == new_filename.length()-strlen(s)) {
-      new_filename.replace(new_filename.length()-strlen(s), strlen(s), "");
-    }
-    if (new_filename.rfind(s2) != new_filename.length()-strlen(s2)) {
-      new_filename += s2;
-    }
-    filename=new_filename; /* nutne kvuli zapisu na disk po odehrani dalsiho kola */
+  sprintf(s, ".%04d", current_round-1);
+  sprintf(s2, ".%04d", current_round);
+  if (new_filename.rfind(s) == new_filename.length()-strlen(s)) {
+    new_filename.replace(new_filename.length()-strlen(s), strlen(s), "");
   }
-  new_filename = battlefield_dir + "/" + new_filename;
+  if (new_filename.rfind(s2) != new_filename.length()-strlen(s2)) {
+    new_filename += s2;
+  }
+  filename=new_filename; /* nutne kvuli zapisu na disk po odehrani dalsiho kola */
+  new_filename = fields_dir + "/" + new_filename;
 
   fd = fopen(new_filename.c_str(),"w+");
   if (fd == NULL) {
     cerr << "soubor " << new_filename.c_str() << " nelze vytvorit" << endl;
     return;
   }
-  fprintf(fd,"%u %u\n", current_round, total_rounds);
 
-  /* zapis sirku a vysku hraciho planu */
-  fprintf(fd,"%u %u\n", width, height);
+  fprintf(fd, "Kolo: %u\n", current_round);
+  fprintf(fd, "Rozmer: %u\n", field_size);
+  fprintf(fd, "Mesta: %d\n", (int)towns.size());
+  for (town_iter=towns.begin(); town_iter!=towns.end(); ++town_iter)
+    fprintf(fd, "%u %u %u\n", town_iter->x, town_iter->y, town_iter->residents);
 
-  /* zapis data o hracich */
-  for (i = 0; i < NUM_PLAYERS; i++ ) {
-    fprintf(fd,"Hrac %u: Body:%u Zakladna:[%u,%u] Rakety", i+1, players[i].points, players[i].home_base.x, players[i].home_base.y);
-    for (j = 0; j < RACKETS_PER_PLAYER; j++) {
-      fprintf(fd,":[%u,%u]", players[i].rackets[j].x, players[i].rackets[j].y);
-    }
-    fprintf(fd,"\n");
-  }
-  i=0;
-  for (i=0; i<NUM_PLAYERS; i++) {
-    fprintf(fd,"Odpoved hrace %u:%s\n", i+1, players[i].last_move.c_str());
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    fprintf(fd, "Hrac%u: %.2f euro %d obchodu\n", i+1, players[i].money, (int)players[i].shops.size());
+    for (shop_iter=players[i].shops.begin(); shop_iter!=players[i].shops.end(); ++shop_iter)
+      fprintf(fd, "%u %u %.2f %.2f\n", shop_iter->x, shop_iter->y, shop_iter->price, shop_iter->profit);
   }
 
-  /* zapis hraci plan samotny */
-  for (i = 0; i < height; i++) {
-    for (j = 0; j < width; j++)
-      fprintf(fd, "%c", field[i*width+j]);
-    fputc('\n', fd);
-  }
-
+  for (i=0; i<NUM_PLAYERS; i++)
+    fprintf(fd, "Hrac%u_odpoved: \"%s\"\n", i+1, players[i].last_response.c_str());
   fclose(fd);
 }
 
-
-bool PlayField::new_field_position(unsigned x, unsigned y, char direction, unsigned& newpos) {
-  return new_field_position(y*width+x, direction, newpos);
-}
-
-bool PlayField::new_field_position(unsigned oldpos, char direction, unsigned& newpos) {
-  switch (direction) {
-    case LEFT_MOVE_CHARACTER: {
-      newpos=oldpos-1;
-      break;
-    }
-    case RIGHT_MOVE_CHARACTER: {
-      newpos=oldpos+1;
-      break;
-    }
-    case UP_MOVE_CHARACTER: {
-      newpos=oldpos-width;
-      break;
-    }
-    case DOWN_MOVE_CHARACTER: {
-      newpos=oldpos+width;
-      break;
-    }
-    default:
-      return false;
-  }
-  return true;
-}
-
-bool is_valid_direction(char ch) {
-  return ((ch==LEFT_MOVE_CHARACTER)||(ch==RIGHT_MOVE_CHARACTER)
-           ||(ch==UP_MOVE_CHARACTER)||(ch==DOWN_MOVE_CHARACTER));
-}
-
-int direction_to_int(char ch) {
-  switch (ch) {
-    case LEFT_MOVE_CHARACTER: {
-      return 0;
-    }
-    case RIGHT_MOVE_CHARACTER: {
-      return 1;
-    }
-    case UP_MOVE_CHARACTER: {
-      return 2;
-    }
-    case DOWN_MOVE_CHARACTER: {
-      return 3;
-    }
-  }
-  return 5; /*vyhodi out-of-bounds chybu; nemelo by nastat diky is_valid_direction*/
-}
-
-int PlayField::movement_to_diff_pos(char ch) {
-  switch (ch) {
-    case LEFT_MOVE_CHARACTER:
-      return -1;
-    case RIGHT_MOVE_CHARACTER:
-      return +1;
-    case UP_MOVE_CHARACTER:
-      return -width;
-    case DOWN_MOVE_CHARACTER:
-      return +width;
-  }
-  return 0;
-}
-
-/*svazano s implementaci direction_to_int !!!*/
-int PlayField::direction_to_diff_pos(unsigned dir) {
-  switch (dir) {
-    case 0:
-      return -1;
-    case 1:
-      return +1;
-    case 2:
-      return -width;
-    case 3:
-      return +width;
-  }
-  return 0; /*nemelo by nastat*/
-}
-
-void PlayField::shot_to_racket(unsigned p, unsigned r) {
-  players[p].rackets[r].x = players[p].home_base.x;
-  players[p].rackets[r].y = players[p].home_base.y;
-  players[p].rackets_shot[r] = true;
-}
-
-bool PlayField::ok_to_move(unsigned pos, int dir) {
-  return (((dir==-1)&&(pos%width>0)) //pohyb vlevo
-        ||((dir==+1)&&(pos%width<width-1)) //pohyb vpravo
-        ||((dir==(int)(-width))&&(pos>=width)) //pohyb nahoru
-        ||((dir==(int)(+width))&&(pos<width*height-width))); //pohyb dolu
-}
-
-void PlayField::add_moves_result(string & move, unsigned shot_length, const char* result)
+void PlayField::get_points(int points[])
 {
-  char move_result[30];
-  sprintf(move_result, " (%u,%s)", shot_length, result);
-  move = move + move_result;
-}
-
-void PlayField::add_moves_result(string & move, char asteroid_weight)
-{
-  char move_result[30];
-  sprintf(move_result, " (%c)", asteroid_weight);
-  move = move + move_result;
-}
-
-void PlayField::play_one_round(response_t* _moves, bool write_to_disk, bool rewrite_original_file)
-{
-
-  bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER];
-  bool valid_push[NUM_PLAYERS][RACKETS_PER_PLAYER];
-  unsigned new_pos;
-  int diff_pos;
-  list<unsigned> shot_rackets;
-  unsigned i,j,k;
-  string moves[NUM_PLAYERS][RACKETS_PER_PLAYER];
-  void *ret;
-  /* pole pro obranu a tahani */
-  list<char> aux_defend_field[width*height];
-  unsigned aux_pulls_field[width*height][4];
-
-  /* znuluju potrebne promenne */
-  for (i=0; i<NUM_PLAYERS; i++) {
-    for (j=0; j<RACKETS_PER_PLAYER; j++) {
-      players[i].rackets_shot[j]=false;
-      moves[i][j]=ERROR_ROBOT_MOVE;
-      valid_move[i][j]=true;
-      valid_push[i][j]=true;
-    }
+  unsigned i;
+  for (i=0; i<NUM_PLAYERS; i++)
+  {
+    points[i] = players[i].money;
   }
-
-  /* zvys pocet odehranych kol */
-  if (current_round >= total_rounds) {
-    cerr << "Chyba: odehrano vice kol nez je maximum " << total_rounds << endl;
-    return;
-  }
-
-  /* hraje se posledni kolo */
-  if ((++current_round == total_rounds) && (debug))
-    cout << "Hraje se posledni kolo." << endl;
-
-  /* nacti kroky hracu do promenne "moves" */
-  for (i = 0; i < NUM_PLAYERS; i++ ) {
-    players[i].last_move=_moves[i];
-    istringstream iss(_moves[i]);
-    for (j=0; j<RACKETS_PER_PLAYER; j++) {
-      ret = getline(iss, moves[i][j], MOVES_DELIMETER);
-      if (ret == NULL) {
-        /* nebyla zadana zadna akce */
-        cerr << "Chybna odpoved " << i+1 << ". hrace: prilis malo akci (" << j << ")." << endl;
-        for (unsigned k=j; k<RACKETS_PER_PLAYER; k++)
-          valid_move[i][k]=false;
-      }
-    }
-  }
-
-  /* poradi vyhodnocovani:
-   * 1. lety raket
-   * 2. obrana
-   * 3. strelba
-   * 4. tahani asteroidu */
-
-  /* zresetuj aux_*_field a nastav aux_defend_field */
-  for (i = 0; i<width*height; i++) {
-    for (j = 0; j<4; j++) {
-      aux_pulls_field[i][j]=0;
-    }
-    aux_defend_field[i].clear();
-  }
-  /* vyhodnot zda jde o validni akci, proved lety raket a nastav obrany */
-  for (i = 0; i < NUM_PLAYERS; i++) {
-    for ( j = 0; j < RACKETS_PER_PLAYER; j++) {
-      new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
-      switch (toupper(moves[i][j][0])) {
-        case DEFEND_ACTION: { /* obrana */
-            if (aux_defend_field[new_pos].empty() || aux_defend_field[new_pos].front()!=AUX_FIELD_WALL)
-              aux_defend_field[new_pos].push_front(AUX_FIELD_WALL);
-            break;
-          }
-        case MOVE_ACTION: { /* let raket */
-            if ((moves[i][j].length()<2) || (!is_valid_direction(toupper(moves[i][j][2])))) {
-              cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: chybi nebo neplatny smer v odpovedi \'" << moves[i][j] << "\'" << endl;
-              valid_move[i][j]=false;
-              break;
-            }
-
-            diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
-            if (!ok_to_move(new_pos,diff_pos)) {
-              cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o odlet z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
-              valid_move[i][j]=false;
-              break;
-            }
-
-            new_pos=new_pos+diff_pos;
-            if (moves[i][j].length()>4) { // raketa chce letet o 2 pole
-              if (!is_valid_direction(toupper(moves[i][j][4]))) {
-                cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neplatny druhy smer v odpovedi \'" << moves[i][j] << "\'" << endl;
-                valid_move[i][j]=false;
-                break;
-              }
-
-              diff_pos=movement_to_diff_pos(toupper(moves[i][j][4]));
-              if (!ok_to_move(new_pos,diff_pos)) {
-                cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o odlet z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
-                valid_move[i][j]=false;
-                break;
-              }
-	      new_pos=new_pos+diff_pos;
-            }
-
-            players[i].rackets[j].x=new_pos%width;
-            players[i].rackets[j].y=new_pos/width;
-            break;
-          }
-        case PULL_ACTION: /* tahnuti asteroidu nyni se ignoruje */
-          break;
-        case SHOT_ACTION: /* strelba - nyni se ignoruje */
-          break;
-        default: {
-          if (valid_move[i][j])
-            cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neznama akce \'" << moves[i][j] << "\'" << endl;
-          valid_move[i][j]=false;
-        }
-      }
-      // nastav ze na tomto policku stoji raketa - at muze byt zastrelena
-      if (aux_defend_field[new_pos].empty() || aux_defend_field[new_pos].front()!=AUX_FIELD_WALL) {
-        aux_defend_field[new_pos].push_front((char)(i*RACKETS_PER_PLAYER+j));
-        // odkaz na raketu ktery by zemrel po pripadne strelbe
-      }
-    }
-  }
-
-  /* vyhodnot strelbu */
-  for (i = 0; i < NUM_PLAYERS; i++)
-    for (j = 0; j < RACKETS_PER_PLAYER; j++)
-      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==SHOT_ACTION)) {
-        new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
-        diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
-        if (diff_pos==0) {
-          cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: neznamy smer strelby v \'" << moves[i][j] << "\'" << endl;
-          valid_move[i][j]=false;
-        }
-        k=0;
-        if (valid_move[i][j]) { 
-          if (ok_to_move(new_pos,diff_pos)) {
-            do {
-              new_pos+=diff_pos;
-  	      k++;
-            }
-            while ((aux_defend_field[new_pos].empty())&&(ok_to_move(new_pos,diff_pos)));
-            if (!aux_defend_field[new_pos].empty()) { // neco jsem zasahl
-              if (aux_defend_field[new_pos].front()!=AUX_FIELD_WALL) { // zasah nebranici se rakety
-                shot_rackets.push_front(new_pos);
-                add_moves_result(moves[i][j], k, "zasah");
-              }
-              else { //zasahl jsem branici raketu
-                add_moves_result(moves[i][j], k, "obrana");
-              }
-            }
-            else { // nezasahl jsem nic
-              add_moves_result(moves[i][j], k, "mimo");
-            }
-          }
-          else { // strilim hned mimo plan
-            add_moves_result(moves[i][j], 0, "mimo");
-          }
-        }
-      }
-
-  // az ted odstran zasazene rakety - aby se mohly strelit 2 navzajem
-  while (!shot_rackets.empty()) {
-    new_pos=shot_rackets.front();
-    shot_rackets.pop_front();
-    if (aux_defend_field[new_pos].size()) { // jeste je na policku koho zastrelit
-      i=rand()%(aux_defend_field[new_pos].size());
-      list<char>::iterator iter=aux_defend_field[new_pos].begin();
-      while (i>0) {
-        i--;
-        iter++;
-      }
-      j=((unsigned)(*iter))%RACKETS_PER_PLAYER;
-      i=((unsigned)(*iter))/RACKETS_PER_PLAYER;
-      shot_to_racket(i,j);
-      aux_defend_field[new_pos].erase(iter); // odstran raketu ze seznamu, je zasazena (kdyby byla dalsi strela na stejne policko)
-      if (debug)
-        cout << "Zastrelena " << j+1 << ".raketa " << i+1 << ". hrace na pozici [" << new_pos%width << "," << new_pos/width << "]." << endl;
-    }
-  }
-  // promaz rakety a "zdi" kam se dalo strilet
-  for (i = 0; i<width*height; i++)
-    aux_defend_field[i].clear();
-
-  /* presun asteroidy */
-  // nejdriv nastav pomocne pole
-  for (i = 0; i < NUM_PLAYERS; i++)
-    for (j = 0; j < RACKETS_PER_PLAYER; j++)
-      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==PULL_ACTION)) {
-        new_pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
-        diff_pos=movement_to_diff_pos(toupper(moves[i][j][2]));
-        if (!ok_to_move(new_pos,diff_pos)) {
-          cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti pryc z hraciho planu v odpovedi \'" << moves[i][j] << "\'" << endl;
-          valid_move[i][j]=false;
-        }
-        else { //TODO: cerr odpovedi kdyz 1. netahnu asteroid, 2. tahnu ale neutahnu
-          if (!is_here_asteroid(new_pos)) {
-            cerr << "Chybna odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti neexistujiciho asteroidu" << endl;
-            valid_move[i][j]=false;
-          }
-	  else {
-            aux_pulls_field[new_pos][direction_to_int(toupper(moves[i][j][2]))]++;
-  	    valid_push[i][j]=false; // docasne dokud nezjistim zda se posun asteroidu povedl
-          }
-        }
-      }
-
-  // ted vyhodnot konfliktni tahani
-  // prochazim tahani dvakrat: v prvnim cyklu zjisti ktery asteroid lze odtahnout a napln pomocne pole na pozice asteroidu
-  // ve druhem kole je skutecne pretahni pokud netahnu asteroid na pole s jinym asteroidem
-  unsigned aux_asteroid_field[width*height];
-  for (i = 0; i<width*height; i++)
-    aux_asteroid_field[i]=(((field[i]>FIELD_ASTEROID)&&(field[i]<=FIELD_ASTEROID+RACKETS_PER_PLAYER))?(1):(0));
-
-  for (unsigned aux_round=0; aux_round<2; aux_round++)
-    for (i = 0; i<width*height; i++) {
-      unsigned sum_weight=(unsigned)(field[i])-48; unsigned max_pull=0; unsigned max_pull_dir=0;
-      for (j=0; j<4; j++) {
-        sum_weight+=aux_pulls_field[i][j];
-        if (max_pull<aux_pulls_field[i][j]) {
-          max_pull=aux_pulls_field[i][j];
-          max_pull_dir=j;
-        }
-      }
-      if (max_pull*2>=sum_weight) { // nasimuluj ci udelej presun asteroidu
-        diff_pos=direction_to_diff_pos(max_pull_dir);
-        new_pos=i+diff_pos;
-        if (aux_round==0) { //nasimuluj presun
-          // nepresouvam asteroid na zakladnu nejakeho hrace?
-          unsigned p=0;
-          while ((p<NUM_PLAYERS)&&
-                ((players[p].home_base.x!=new_pos%width)
-                  ||(players[p].home_base.y!=new_pos/width)))
-            p++;
-          if (p==NUM_PLAYERS) //zadny hrac nema na nove pozici zakladnu, zkus simulovat presun
-            aux_asteroid_field[new_pos]++;
-          else { // pridej body hraci (a nepresouvej asteroid jen jej smaz)
-            move_rockets_after_push(i, new_pos, moves, valid_move, valid_push);
-            players[p].points+=((unsigned)(field[i])-48);
-            field[i]=FIELD_EMPTY;
-          }
-        }
-        else {
-          if (aux_asteroid_field[new_pos]==1) {
-            move_rockets_after_push(i, new_pos, moves, valid_move, valid_push);
-            field[new_pos]=field[i];
-            field[i]=FIELD_EMPTY;
-          }
-          else
-            cerr << "Pokus tahnout asteroid na pozici [" << new_pos%width << "," << new_pos/width << "] (" << new_pos << ") selhal: konflikt v polohach asteroidu." << endl;
-        }
-      }
-    }
-  // napis chybne odpovedi pokud se tahnuti asteroidu nezdarilo
-  for (i = 0; i < NUM_PLAYERS; i++)
-    for (j = 0; j < RACKETS_PER_PLAYER; j++)
-      if ((!is_racket_shot(i,j))&&(valid_move[i][j])
-          &&(toupper(moves[i][j][0])==PULL_ACTION)&&(valid_push[i][j]==false)) {
-        cerr << "Neprovedena odpoved " << i+1 << ". hrace " << j+1 << ". raketa: pokus o tahnuti asteroidu nevysel" << endl;
-        valid_move[i][j]=false;
-      }
-
-  /* neni konec hry = probehlo posledni kolo nebo dosli asteroidy */
-  _game_finished=((current_round >= total_rounds) || (!makes_sense_to_play()));
-
-
-  /* zapis na disk */
-  /* nejdriz zkanonizuj odpovedi do unifikovane formy */
-  canonize_moves(moves, valid_move);
-  if (write_to_disk)
-    write_playfield_to_disk(rewrite_original_file);
-}
-
-void PlayField::move_rockets_after_push(unsigned from, unsigned to,
-    string moves[NUM_PLAYERS][RACKETS_PER_PLAYER],
-    bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER],
-    bool (&valid_push)[NUM_PLAYERS][RACKETS_PER_PLAYER]) {
-  unsigned i,j,pos,new_pos;
-  for (i = 0; i < NUM_PLAYERS; i++)
-    for (j = 0; j < RACKETS_PER_PLAYER; j++)
-      if ((!is_racket_shot(i,j))&&(valid_move[i][j])&&(toupper(moves[i][j][0])==PULL_ACTION)) {
-        pos=players[i].rackets[j].y*width+players[i].rackets[j].x;
-	new_pos=pos+movement_to_diff_pos(toupper(moves[i][j][2]));
-	if ((from==pos)&&(to==new_pos)) {
-          players[i].rackets[j].x=new_pos%width;
-          players[i].rackets[j].y=new_pos/width;
-	  valid_push[i][j]=true;
-          add_moves_result(moves[i][j],field[from]);
-        }
-      }
-}
-
-void PlayField::canonize_moves (string moves[NUM_PLAYERS][RACKETS_PER_PLAYER], bool valid_move[NUM_PLAYERS][RACKETS_PER_PLAYER]) {
-  for (unsigned i=0; i<NUM_PLAYERS; i++) {
-    players[i].last_move="(" + players[i].last_move + ")";
-    for (unsigned j=0; j<NUM_PLAYERS; j++) {
-      string robot_move = moves[i][j];
-      if (!valid_move[i][j])
-        robot_move = ERROR_ROBOT_MOVE;
-      for (unsigned k=0; (k<robot_move.length())&&(robot_move[k]!='('); k++)
-        if (k%2==0)
-        robot_move[k] = (k%2==0) ? (toupper(robot_move[k])) : (' ');
-      players[i].last_move = players[i].last_move + MOVES_DELIMETER + robot_move;
-    }
-//    players[i].last_move =  players[i].last_move + MOVES_DELIMETER + "(" + orig_answer + ")";
-  }
-}
-
-void PlayField::get_player_points(unsigned points[]) {
-  for (unsigned i = 0; i < NUM_PLAYERS; i++)
-    points[i] = players[i].points;
 }

@@ -1,22 +1,23 @@
-RedBot pravidla:
-    Viz RedBot_pravidla.txt a http://red-bot.rhcloud.com/
+(*) RedBot pravidla:
+viz http://red-bot.rhcloud.com/ a/nebo RedBot_pravidla.txt
 
+(*) Software nutný pro překlad gui:
+gtk3-devel
+
+(*) Překlad
+Jak přeložit zdrojový kód serveru i gui:
+    make
 Jak přeložit zdrojový kód serveru:
-    $ make
-    Pro přeložení gui.c budete potřebovat balík gtk2-devel
+    make redbot
+Jak přeložit zdrojový kód gui:
+    make gui
 
-Typické spuštění serveru:
-    $ ./redbot super_strategy/super_strategy myStrategy/myStrategy.py
-    Volitelně je možné použít tyto přepínače:
-      -f VALUE, --field VALUE - soubor s hracím plánem
-      -j, --jedno_kolo - odehrej jen jedno kolo (pro odehrání dalšího kola
-        příště použijte -f s novým hracím plánem)
-      -p VALUE, --plan VALUE - adresář kam si server bude ukládat hrací plány
-        (defaultně nastaveno na './game/')
+(*) Typické spuštění serveru:
+    ./redbot strategie1_dir/strategie1 strategie2_dir/strategie2
 
-Jak přehrát hru:
-    $ ./gui
-    Volitelně je možné použít tyto přepínače:
-      -d <jmeno adresare s zaznamem hry> - defaultně nastaveno na './game/'
-      -p <jmeno adresare s grafikou> defaultně nastaveno na './pic/'
-    $ ./tui.sh - Velmi jednoduchý textový přehrávač
+Přepínače: viz ./redbot --help
+
+Záznam o hře je uložen do defaultně do adresáře "game".
+
+(*) Jak přehrát hru:
+    ./gui

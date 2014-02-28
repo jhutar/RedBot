@@ -45,22 +45,22 @@ struct Options : OptionParser
   bool sudo_mode;
   bool debug;
   bool delete_old_playing_fields;
-  string battlefields_dir;
+  string fields_dir;
 
   Options()
     : OptionParser("Pouziti: ./redbot [OPTIONS] strategie1 strategie2 .. strategieN", "Spust redbot server"),
-    field_filename(FIELD_DEFAULT_FILENAME),
+    field_filename(DEFAULT_FIELD_FILENAME),
     one_round(false),
     sudo_mode(false),
     debug(false),
     delete_old_playing_fields(false),
-    battlefields_dir("game")
+    fields_dir("game")
     {
       add("field,f", field_filename, "soubor s hracim planem");
       add("jedno_kolo,j", one_round, "odehrej jen jedno kolo");
       add("sudo_mode,s", sudo_mode, "sudo-mod - klienti pobezi pod separatnimi uzivateli");
       add("debug,d", debug, "debug mod");
-      add("plan,p", battlefields_dir, "adresar kam si server bude ukladat hraci plany");
+      add("plan,p", fields_dir, "adresar kam si server bude ukladat hraci plany");
       add("smaz_stare_plany,S", delete_old_playing_fields, "Smaz stare soubory z predchozi hry.");
     }
 
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
   unsigned time_elapsed, random_seed;
   bool all_responded;
   string sudo_kill;
-  unsigned points[NUM_PLAYERS];
+  int points[NUM_PLAYERS];
 
   int i;
   char *c;
@@ -225,14 +225,14 @@ int main(int argc, char **argv)
     }
   }
 
-  /* test if directory for storing battlefields exists */
-  if ((stat(options.battlefields_dir.c_str(), &sb) != 0) || (! S_ISDIR(sb.st_mode)))
+  /* test if directory for storing fields exists */
+  if ((stat(options.fields_dir.c_str(), &sb) != 0) || (! S_ISDIR(sb.st_mode)))
   {
-    cout << "Neexistuje adresar \"" << options.battlefields_dir
+    cout << "Neexistuje adresar \"" << options.fields_dir
          << "\" kam ukladat hraci plany, vytvarim jej." << endl;
-    if (mkdir(options.battlefields_dir.c_str(), 0777) != 0)
+    if (mkdir(options.fields_dir.c_str(), 0777) != 0)
     {
-      cerr << "Nepodarilo se vytvorit adresar \"" << options.battlefields_dir
+      cerr << "Nepodarilo se vytvorit adresar \"" << options.fields_dir
            << "\" kam ukladat hraci plany!" << endl;
       return EXIT_FAILURE;
     }
@@ -257,14 +257,11 @@ int main(int argc, char **argv)
   srand (random_seed);
 
   /* load playing field */
-  PlayField playfield(options.field_filename, options.battlefields_dir);
+  PlayField playfield(options.fields_dir, options.field_filename);
   playfield.set_debug(options.debug);
-  if (!playfield.loaded_ok()) {
-    return EXIT_FAILURE;
-  }
 
   /* delete playing field snapshots from previous game */
-  string filename, aux_filename = options.battlefields_dir + "/";
+  string filename, aux_filename = options.fields_dir + "/";
   if (options.delete_old_playing_fields) {
     size_t last_dir_delim = options.field_filename.find("/");
     if (last_dir_delim != string::npos)
@@ -280,7 +277,7 @@ int main(int argc, char **argv)
     }
     while (remove(filename.c_str()) == 0);
   }
-  /* zkopiruj puvodni soubor do adresare options.battlefields_dir */
+  /* zkopiruj puvodni soubor do adresare options.fields_dir */
   std::ifstream src(options.field_filename.c_str());
   std::ofstream dst(aux_filename.c_str());
   dst << src.rdbuf();
@@ -294,7 +291,7 @@ int main(int argc, char **argv)
     for (tid = 0; tid < NUM_PLAYERS; ++tid)
     {
       /* zkopiruj aktualni soubor */
-      aux_filename = bots_dir[tid] + "/" + FIELD_DEFAULT_FILENAME;
+      aux_filename = bots_dir[tid] + "/" + DEFAULT_FIELD_FILENAME;
       std::ifstream src2(playfield.get_current_filename().c_str());
       std::ofstream dst2(aux_filename.c_str());
       dst2 << src2.rdbuf();
@@ -383,7 +380,7 @@ int main(int argc, char **argv)
 
   if (playfield.game_finished()) {
     cout << "Hra skoncila, hraci maji bodu:";
-    playfield.get_player_points(points);
+    playfield.get_points(points);
     for (i = 0; i < NUM_PLAYERS; i++)
     {
       cout << ' ' << points[i];

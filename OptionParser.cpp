@@ -176,7 +176,7 @@ bool OptionMatch::isOption()
 
 OptionParser::OptionParser(const std::string& s, const std::string& d) : summary(s), description(d), help(false)
 {
-    add("help,h", help, "vypis tuto napovedu");
+    add("help,h", help, "show this message");
 }
 
 Option* OptionParser::getOption(const std::string& argument)
@@ -186,7 +186,7 @@ Option* OptionParser::getOption(const std::string& argument)
         Options::iterator i = std::find_if(options.begin(), options.end(), match);
         if (i == options.end()) {
             std::stringstream error;
-            error << "Neznama volba: " << argument;
+            error << "Unrecognised option: " << argument;
             throw error.str();
         } else {
             return *i;
@@ -199,7 +199,7 @@ Option* OptionParser::getOption(const std::string& argument)
 void OptionParser::error(const std::string& message)
 {
     std::cout << summary << std::endl << std::endl;
-    std::cerr << "Chyba: " << message << "; zkus --help pro vice informaci" << std::endl;
+    std::cerr << "Error: " << message << "; try --help for more information" << std::endl;
 }
 
 bool OptionParser::parse(int argc, char** argv)
@@ -214,7 +214,7 @@ bool OptionParser::parse(int argc, char** argv)
                         o->setValue(argv[++i]);
                     } else {
                         std::stringstream error;
-                        error << "Chybi hodnota pro volbu " << o->longName;
+                        error << "Value expected for option " << o->longName;
                         throw error.str();
                     }
                 } else {
