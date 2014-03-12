@@ -68,8 +68,8 @@ kde:
   - "0 1 10" v seznamu měst znamená město na souřadnicích [0,1] s 10 obyvateli
 - "Hrac1: 104 euro 4 obchodu" - souhrn vlastností hráče, následuje seznam obchodů
   - "1 3 2.00 15.00" v seznamu obchodů znamená obchod na souřadnicích [1,3] měl v posledním kole cenu zboží nastavenou na 2.00 eura a zisk 15.00 eur (po odečtení nákladů na prodej a nájemného)
-- "Hrac1_odpoved: "2;2;2;2;"" je odpověď daného hráče v tomto kole
-  - odpověď hráče může být prázdná (v prvním souboru před prvním kolem)
+- "Hrac1_odpoved: "2;2;2;2;"" je odpověď daného hráče v předchozím kole
+  - odpověď hráče může být prázdná (v prvním souboru před prvním kolem). To je užitečné pro porovnávání posledních dvou hracích plánů (vyhodnocovací program zapisuje do adresáře "game" hrací plány po jednotlivých kolech) a zejména pro vizualizaci, která potřebuje znát ceny obchodů v daném kole.
 
 Předpokládaný výstup programu: řetězec se středníkem jako oddělovačem, postupně obsahující:
 - ceny všech současných obchodů (i těch které hráč ruší) - ceny jsou reálná čísla s libovolnou přesností
