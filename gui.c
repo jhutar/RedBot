@@ -43,8 +43,8 @@ int show_battlefield(FILE *f)
 	int i, j;
 	int x, y, size;
 	GtkWidget *label;
-	int money, shops;
-	float c1, c2;
+	int shops;
+	float money, c1, c2;
 
 	/* skip the number of rounds */
 
