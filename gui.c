@@ -101,11 +101,11 @@ int show_battlefield(FILE *f)
 		ret = 2;
 		goto end;
 	}
-	sscanf(line, "Hrac1: %d euro %d", &money, &shops);
+	sscanf(line, "Hrac1: %f euro %d", &money, &shops);
 	sprintf(filename,"%spic/nic.jpg", pictures);
 	image = gtk_image_new_from_file(filename);
 	gtk_fixed_put(GTK_FIXED(frame), image, 30, 40);
-	sprintf(label_text, "hrac: %d", money);
+	sprintf(label_text, "hrac: %.2f", money);
 	label = gtk_label_new(label_text);
 	gtk_fixed_put(GTK_FIXED(frame), label, 30, 40);
 	for (i = 0; i<shops; i++) {
@@ -135,11 +135,11 @@ int show_battlefield(FILE *f)
 		ret = 2;
 		goto end;
 	}
-	sscanf(line, "Hrac2: %d euro %d", &money, &shops);
+	sscanf(line, "Hrac2: %f euro %d", &money, &shops);
 	sprintf(filename,"%spic/nic.jpg", pictures);
 	image = gtk_image_new_from_file(filename);
 	gtk_fixed_put(GTK_FIXED(frame), image, 30, 60);
-	sprintf(label_text, "hrac: %d", money);
+	sprintf(label_text, "hrac: %.2f", money);
 	label = gtk_label_new(label_text);
 	gtk_fixed_put(GTK_FIXED(frame), label, 30, 60);
 	for (i = 0; i<shops; i++) {
