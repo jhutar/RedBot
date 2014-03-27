@@ -250,7 +250,7 @@ void PlayField::play_one_round(response_t* moves)
              << shop_weights[i-1].shop_iter->price - GOODS_COST - 1.0*shop_weights[i-1].shop_iter->price*shop_weights[i-1].shop_iter->price/MAX_PRICE
              << " from town [" << town_iter->x << "," << town_iter->y << "]"
              << endl;
-      shop_weights[i-1].shop_iter->profit += (shop_weights[i-1].shop_iter->price - GOODS_COST);
+      shop_weights[i-1].shop_iter->profit += (shop_weights[i-1].shop_iter->price - GOODS_COST - 1.0*shop_weights[i-1].shop_iter->price*shop_weights[i-1].shop_iter->price/MAX_PRICE);
     }
   }
   /* add money from shops profit to player's money */
