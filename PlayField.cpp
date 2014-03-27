@@ -180,6 +180,7 @@ void PlayField::play_one_round(response_t* moves)
     while (response_iter!=response_elems.end()
             &&(sscanf(response_iter->c_str(),NEW_SHOP_CMD_FORMAT.c_str(), &new_shop.x, &new_shop.y)==2))
     {
+      players[i].money -= SHOP_BUILD_PRICE;
       new_shop.player=i;
       new_shops.push_back(new_shop);
       ++response_iter;
@@ -291,8 +292,6 @@ void PlayField::add_shop(list<new_shop_t>::iterator new_shop)
   shop.y=new_shop->y;
   shop.price=INVALID_PRICE;
   shop.profit=0;
-
-  players[new_shop->player].money -= SHOP_BUILD_PRICE;
 
   if (shop_iter!=players[new_shop->player].shops.end())
     players[new_shop->player].shops.insert(shop_iter,shop);
