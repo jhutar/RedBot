@@ -113,3 +113,16 @@ if __name__ == '__main__':
   ###main()
   test_start_init()
   test_plan_init()
+
+# I expect this should work like this:
+#
+# load all data
+# execute all competing strategies with command line params: <strategy_id> <datafile_path> <potion>
+# evaluate putting stones on the map
+# evaluate extending routes
+# count potions completed by each strategy in this round
+#   for each strategy:
+#     what ingredient do I have access to?
+#     how many potions can I create?
+#   compete for resources we have to compete for
+# update (remove ingredients used for potions in this round...) and dump map
