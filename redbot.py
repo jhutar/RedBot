@@ -5,6 +5,18 @@ from strat import Strat
 from plan import Plan
 from game import Game
 
+plan_list = [
+  'A:3;B:3,-:1,A:1,,,,H:1,-:0,G:3;H:3',
+  ',,,,,,|:0,,',
+  'B:1,-:0,,-:0,,-:0,,,G:1',
+  ',,,,,,|:0,,',
+  ',,,,,,,,',
+  ',,,,,,,\:0,',
+  'C:1,,,,,,,,F:1',
+  ',,,,,,,,',
+  'C:3;D:3,,D:1,,,,E:1,,E:3;F:3'
+]
+
 def test_start_init():
   strat = Strat('0,0,5,ABC')
   assert strat.id == 0
@@ -17,17 +29,20 @@ def test_start_init():
   assert strat.stones == 0
   assert strat.potion == ['X', 'Y', 'Z']
 
-plan_list = [
-  'A:3;B:3,-:1,A:1,,,,H:1,-:0,G:3;H:3',
-  ',,,,,,|:0,,',
-  'B:1,-:0,,-:0,,-:0,,,G:1',
-  ',,,,,,|:0,,',
-  ',,,,,,,,',
-  ',,,,,,,\:0,',
-  'C:1,,,,,,,,F:1',
-  ',,,,,,,,',
-  'C:3;D:3,,D:1,,,,E:1,,E:3;F:3'
-]
+def test_start_want_to_use():
+  plan = Plan(plan_list)
+  strat = Strat('0,0,5,HFG')
+  expected = {
+    6: {
+      8: {'H': 1},
+    },
+    8: {
+      2: {'F': 1},
+      8: {'G': 3, 'H': 3},
+    }
+  }
+  assert strat.want_to_use(plan) == expected
+
 def test_plan_init():
   plan = Plan(plan_list)
   assert plan[0][0] == {'C': 3, 'D': 3}
@@ -81,6 +96,7 @@ def main():
 if __name__ == '__main__':
   ###main()
   test_start_init()
+  test_start_want_to_use()
   test_plan_init()
   test_plan_stones()
   test_plan_paths()

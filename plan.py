@@ -38,10 +38,9 @@ class Plan():
   """Object to hold data about game plan. it can be adressed by x and y coordinates and [0,0] is in bottom left corner"""
   def __init__(self, dat):
     self.dat = dat
-    self.dat.reverse()   # because y axis have beginning at bottom
     self.columns = {}
     self.plan = []
-    for line in self.dat:
+    for line in self.dat[::-1]:
       # Line looks like: "A:3;B:3,,A:1,-:1,,,H:1,-:2,G:3;H:3"
       l = []
       for cell in line.split(','):
