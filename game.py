@@ -5,11 +5,13 @@ class Strat():
   """Object to hold data about strategies"""
   def __init__(self, dat):
     dat_list = dat.split(',')
-    self.points = int(dat_list[0])
+    self.id = int(dat_list[0])
+    assert 3 >= self.id >= 0
+    self.points = int(dat_list[1])
     assert self.points >= 0
-    self.stones = int(dat_list[1])
+    self.stones = int(dat_list[2])
     assert self.stones >= 0
-    self.potion = list(dat_list[2])
+    self.potion = list(dat_list[3])
     assert len(self.potion) == 3
 
 
@@ -19,13 +21,22 @@ class Plan():
   class PlanColumn():
     """Helper object to implement Plan[x][y] type of access"""
     def __init__(self, plan, x):
+      self.x = x
       self.column = []
       for line in plan:
-        self.column.append(line[x])
+        self.column.append(line[self.x])
       ###print ">>> self.column:", self.column
 
     def __getitem__(self, y):
       return self.column[y]
+
+    def __setitem__(self, y, value):
+      # If value is stone (i.e. "{'#': startID}"), then replace whatever is in the cell
+      # If value is path (e.g. "{'\': startID}"), then just add it to whatever is already in the cell
+      ###print ">>> Setting [%s,%s] to '%s'" % (self.x, y, value)
+      if '#' in value:
+        if '#' not in self.column[y]:
+          self.column[y] = value
 
   def __init__(self, dat):
     self.dat = dat
@@ -54,6 +65,14 @@ class Plan():
       self.columns[x] = self.PlanColumn(self.plan, x)
     return self.columns[x]
 
+  def __str__(self):
+    out = ''
+    for y in range(len(self.dat)-1, -1, -1):
+      for x in range(len(self.dat)):
+        out += str(self[x][y])
+      out += "\n"
+    return out
+
 
 class Game():
   """Object to hold data (game plan, strategies) about game"""
@@ -77,34 +96,52 @@ class Game():
   def _get_strat(self):
     pass
 
+  def round(self):
+    answer = ["", "", "", ""]
+
 
 def test_start_init():
-  strat = Strat('0,5,ABC')
+  strat = Strat('0,0,5,ABC')
+  assert strat.id == 0
   assert strat.points == 0
   assert strat.stones == 5
   assert strat.potion == ['A', 'B', 'C']
-  strat = Strat('100,0,XYZ')
+  strat = Strat('1,100,0,XYZ')
+  assert strat.id == 1
   assert strat.points == 100
   assert strat.stones == 0
   assert strat.potion == ['X', 'Y', 'Z']
 
+plan_list = [
+  'A:3;B:3,-:1,A:1,,,,H:1,,G:3;H:3',
+  ',,,,,,,,',
+  'B:1,,,,,,,,G:1',
+  ',,,,,,,,',
+  ',,,,,,,,',
+  ',,,,,,,,',
+  'C:1,,,,,,,,F:1',
+  ',,,,,,,,',
+  'C:3;D:3,,D:1,,,,E:1,,E:3;F:3'
+]
 def test_plan_init():
-  plan_list = [
-    'A:3;B:3,-:1,A:1,,,,H:1,,G:3;H:3',
-    ',,,,,,,,',
-    'B:1,,,,,,,,G:1',
-    ',,,,,,,,',
-    ',,,,,,,,',
-    ',,,,,,,,',
-    'C:1,,,,,,,,F:1',
-    ',,,,,,,,',
-    'C:3;D:3,,D:1,,,,E:1,,E:3;F:3'
-  ]
   plan = Plan(plan_list)
   assert plan[0][0] == {'C': 3, 'D': 3}
   assert plan[1][8] == {'-': 1}
   assert plan[1][0] == {}
+  ##print plan
 
+def test_plan_stones():
+  plan = Plan(plan_list)
+  ###print plan
+  plan[0][0] = {'#': 3}
+  assert plan[0][0] == {'#': 3}
+  plan[0][0] = {'#': 0}   # stones can not be replaced
+  assert plan[0][0] == {'#': 3}
+  plan[1][8] = {'#': 3}
+  assert plan[1][8] == {'#': 3}
+  plan[1][0] = {'#': 3}
+  assert plan[1][0] == {'#': 3}
+  ###print plan
 
 def main():
   game = Game('plan.dat')
@@ -113,6 +150,7 @@ if __name__ == '__main__':
   ###main()
   test_start_init()
   test_plan_init()
+  test_plan_stones()
 
 # I expect this should work like this:
 #

@@ -7,7 +7,7 @@ B:1,,,,,,,,G:1
 C:1,,,,,,,,F:1
 ,,,,
 C:3;D:3,,D:1,,,,E:1,,E:3;F:3
-start0:0,5,AEH
-start1:0,5,CGB
-start2:0,5,EAD
-start3:0,5,GCF
+start:0,0,5,AEH
+start:1,0,5,CGB
+start:2,0,5,EAD
+start:3,0,5,GCF
