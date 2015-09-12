@@ -90,6 +90,11 @@ def test_plan_set_negative():
     else:
       assert 0 == 1
 
+def test_plan_same_all_the_time():
+  plan1 = Plan(plan_list)
+  plan2 = Plan(plan_list)
+  assert plan1 == plan2
+
 def main():
   game = Game('plan.dat')
 
@@ -101,6 +106,7 @@ if __name__ == '__main__':
   test_plan_stones()
   test_plan_paths()
   test_plan_set_negative()
+  test_plan_same_all_the_time()
 
 # I expect this should work like this:
 #

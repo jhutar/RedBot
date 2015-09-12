@@ -69,3 +69,6 @@ class Plan():
         out += str(self[x][y])
       out += "\n"
     return out
+
+  def __eq__(self, other):
+    return self.plan == other.plan
