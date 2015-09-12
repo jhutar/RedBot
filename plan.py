@@ -20,9 +20,20 @@ class Plan():
       # If value is stone (i.e. "{'#': startID}"), then replace whatever is in the cell
       # If value is path (e.g. "{'\': startID}"), then just add it to whatever is already in the cell
       ###print ">>> Setting [%s,%s] to '%s'" % (self.x, y, value)
-      if '#' in value:
-        if '#' not in self.column[y]:
-          self.column[y] = value
+      assert len(value) == 1   # only one item can be placed in one time (this is limitation of this method implementation only)
+      k = value.keys()[0]
+      v = value.values()[0]
+      if k == '#':   # lets place stone
+        assert 0 <= v <= 3   # value for stone is stratID
+        if '#' not in self.column[y]:   # only place the stone on the fields without stone
+          self.column[y] = value   # just remove whatever was on the field before
+      elif k in ['|', '/', '-', '\\']:   # lets add some path to the field
+        assert 0 <= v <= 3
+        if '#' not in self.column[y]:   # only place new path on the fields without stone
+          if k not in self.column[y]:   # only place new path on the field if same path is not already there
+            self.column[y][k] = v
+      else:
+        raise Exception("Do not know how to set this value (%s, %s, %s)" % (self.x, y, value))
 
   def __init__(self, dat):
     self.dat = dat

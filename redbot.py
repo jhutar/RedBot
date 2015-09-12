@@ -48,6 +48,33 @@ def test_plan_stones():
   assert plan[1][0] == {'#': 3}
   ###print plan
 
+def test_plan_paths():
+  plan = Plan(plan_list)
+  ###print plan
+  plan[0][0] = {'|': 3}
+  assert plan[0][0] == {'C': 3, 'D': 3, '|': 3}
+  plan[0][0] = {'/': 2}
+  plan[0][0] = {'-': 1}
+  plan[0][0] = {'\\': 0}
+  assert plan[0][0] == {'C': 3, 'D': 3, '|': 3, '/': 2, '-': 1, '\\': 0}
+  plan[2][2] = {'#': 3}
+  plan[2][2] = {'|': 3}
+  assert plan[2][2] == {'#': 3}
+  plan[4][4] = {'|': 3}
+  plan[4][4] = {'#': 3}
+  assert plan[4][4] == {'#': 3}
+  ###print plan
+
+def test_plan_set_negative():
+  plan = Plan(plan_list)
+  for value in [{'.': 0}, {'#': 10}, {'|': -10}, {'.': 1000}]:
+    try:
+      plan[0][0] = value
+    except Exception:
+      pass
+    else:
+      assert 0 == 1
+
 def main():
   game = Game('plan.dat')
 
@@ -56,6 +83,8 @@ if __name__ == '__main__':
   test_start_init()
   test_plan_init()
   test_plan_stones()
+  test_plan_paths()
+  test_plan_set_negative()
 
 # I expect this should work like this:
 #
