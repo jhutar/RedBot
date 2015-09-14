@@ -1,0 +1,66 @@
+Skřítkové v lese dostali od svého krále za úkol namíchat každý
+jiný lektvar.
+
+Například skřítek Lojza má namíchat "babinu zhoubu", která se
+skládá z babího ucha, jitrocele a vraního oka (...?). Skřítek
+Šiska má za úkol zase ....
+
+Aby mohli skřítkové lektvar namíchat, musí si v jejich lese
+nejdřív mezi "nalezišti" potřebných ingrediencí umést cestičky.
+
+B = babí ucho
+J = jitrocel
+V = vraní oko
+L = lopuch
+...
+
+
+Les vypadá nějak takto:
+
+  1  2  3  4  5
+1 B  .  .  .  .
+
+2 .  .  .  J  .
+
+3 .  L  V  .  .
+
+4 .  .  .  B  .
+
+5 V  .  .  .  .
+
+Pokud dáme skřítkovi Lojzovi 3 kola, tak má hotovo:
+
+  1  2  3  4  5
+1 B  .  .  .  .
+
+2 .  .  .  J  .
+           |
+3 .  L  V--.  .
+           |
+4 .  .  .  B  .
+
+5 V  .  .  .  .
+
+Ale pokud by do toho vstoupil skřítek Šiška, který zatím budoval
+v jiné části lesa (jako), tak přidáním jediné cestičky vytvoří
+lektvar "velké energie" (lopuch + jitrocel + babí ucho):
+
+  1  2  3  4  5
+1 B  .  .  .  .
+
+2 .  .  .  J  .
+           |
+3 .  L--V--.  .
+           |
+4 .  .  .  B  .
+
+5 V  .  .  .  .
+
+Pravidla:
+
+ * po kolech
+ * možné akce: umeť cestičku z 2,3 do 4,3 nebo nic nedělej
+ * cíl (něco z tohoto):
+   - kdo první pospojuje ingredience pro 3 jemu zadané lektvary
+   - kdo za dobu hry pospojuje víc lektvarů (kuchařka dostupná všem)
+ * kazdy hrac muze za hru polozit N (treba 5) kamenu (kde je kamen, neda se postavit cesticka)
