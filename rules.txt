@@ -1,5 +1,5 @@
-Skřítkové v lese dostali od svého krále za úkol namíchat každý
-jiný lektvar.
+4 skřítkové v lese dostali od svého krále za úkol namíchat každý
+jiný lektvar o 3 ingrediencích.
 
 Například skřítek Lojza má namíchat "babinu zhoubu", která se
 skládá z babího ucha, jitrocele a vraního oka (...?). Skřítek
@@ -41,8 +41,8 @@ Pokud dáme skřítkovi Lojzovi 3 kola, tak má hotovo:
 
 5 V  .  .  .  .
 
-Ale pokud by do toho vstoupil skřítek Šiška, který zatím budoval
-v jiné části lesa (jako), tak přidáním jediné cestičky vytvoří
+Ale pokud by do toho vstoupil skřítek Šiška, který (jako) zatím
+budoval v jiné části lesa, tak přidáním jediné cestičky vytvoří
 lektvar "velké energie" (lopuch + jitrocel + babí ucho):
 
   1  2  3  4  5
@@ -64,3 +64,5 @@ Pravidla:
    - kdo první pospojuje ingredience pro 3 jemu zadané lektvary
    - kdo za dobu hry pospojuje víc lektvarů (kuchařka dostupná všem)
  * kazdy hrac muze za hru polozit N (treba 5) kamenu (kde je kamen, neda se postavit cesticka)
+ * na každém políčku může být daná ingredience vícekrát, může tam být několik různých ingrediencí
+ * kromně první postavené cestičky musí každá další cestička navazovat na nějakou postavenou daným skřítkem nebo jiným skřítkem pokud se na ni daný skřítek napojil
