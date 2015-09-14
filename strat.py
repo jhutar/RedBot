@@ -3,7 +3,9 @@
 
 class Strat():
   """Object to hold data about strategies"""
-  def __init__(self, dat):
+  def __init__(self, strat, dat):
+    self.strat = start
+    # TODO: assert the file exists and is executable
     dat_list = dat.split(',')
     self.id = int(dat_list[0])
     assert 3 >= self.id >= 0
@@ -13,6 +15,15 @@ class Strat():
     assert self.stones >= 0
     self.potion = list(dat_list[3])
     assert len(self.potion) == 3
+
+  def execute(self, plan)
+    """Execute the strategy (in self.strat) in its directory with
+       following options: <strategy_id> <datafile_path> <potion>
+       Make sure we have some way how to run strategy as different
+       user, under some ulimit settings (both not by default) and
+       with timeout of, say, 3 seconds. Return STDOUT, log STDERR.
+       """
+    return ""
 
   def want_to_use(self, plan):
     """Return structure with list of ingredients (connected by this strategy

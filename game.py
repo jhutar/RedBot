@@ -18,10 +18,20 @@ class Game():
         self.dat.append(line.strip())
 
   def _get_plan(self):
+    """Parse plan file and return only part with map we can feed
+       to Plan constructor"""
     pass
 
   def _get_strat(self):
+    """Parse plan file and return only parts with strategies we can
+       feed to Start constructor"""
     pass
 
+  def _get_answers(self):
+    """Execute strat.execute() for all strategies. Ideally in parallel
+       (if Python can do reall parallel computation (?))."""
+    return ['', '', '', '']
+
   def round(self):
-    answer = ["", "", "", ""]
+    answer = self._get_answers()
+    # And now do all the rest

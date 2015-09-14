@@ -18,12 +18,12 @@ plan_list = [
 ]
 
 def test_start_init():
-  strat = Strat('0,0,5,ABC')
+  strat = Strat('strat0/strat0.sh', '0,0,5,ABC')
   assert strat.id == 0
   assert strat.points == 0
   assert strat.stones == 5
   assert strat.potion == ['A', 'B', 'C']
-  strat = Strat('1,100,0,XYZ')
+  strat = Strat('strat1/strat1.sh', '1,100,0,XYZ')
   assert strat.id == 1
   assert strat.points == 100
   assert strat.stones == 0
@@ -31,7 +31,7 @@ def test_start_init():
 
 def test_start_want_to_use():
   plan = Plan(plan_list)
-  strat = Strat('0,0,5,HFG')
+  strat = Strat('strat0/strat0.sh', '0,0,5,HFG')
   expected = {
     6: {
       8: {'H': 1},
