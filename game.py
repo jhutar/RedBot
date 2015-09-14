@@ -27,6 +27,23 @@ class Game():
        feed to Start constructor"""
     pass
 
+  def _get_want_to_use(self):
+    """Execute strat.want_to_use() for all strategies"""
+    return [{}, {}, {}, {}]
+
+  def _get_can_use(self):
+    """Find ingredients wanted by more than one strategy and distribute
+       these fairly"""
+    want_to_use = self._get_want_to_use()
+    return [{}, {}, {}, {}]
+
+  def _brew_potions(self):
+    """Brew potions:
+        * add points to strategies which brewed something
+        * remove used ingredients from the map
+       """
+    pass
+
   def _get_answers(self):
     """Execute strat.execute() for all strategies. Ideally in parallel
        (if Python can do reall parallel computation (?))."""
