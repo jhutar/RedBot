@@ -16,7 +16,7 @@ class Strat():
     self.potion = list(dat_list[3])
     assert len(self.potion) == 3
 
-  def execute(self, plan)
+  def execute(self, plan):
     """Execute the strategy (in self.strat) in its directory with
        following options: <strategy_id> <datafile_path> <potion>
        Make sure we have some way how to run strategy as different
