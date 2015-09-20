@@ -1,0 +1,31 @@
+<h1>Pravidla</h1>
+
+<p>Dva lesní skřítkové dostali od svého krále za úkol namíchat lektvary z různých ingrediencí. Skřítkové staví napříč lesem cestičky propojující požadované suroviny, vyhrává ten skřítek, který získá více bodů (lektvary jsou bodovány dle jejich složitosti).</p>
+
+<ul>
+	<li>Hraje se kolově, počet kol je omezen</li>
+	<li>Na jednom plánu hrají dva soupeři</li>
+	<li>Hrací pole je čtvercová síť, jednotlivá políčka mají souřadnice od <code>[0,0]</code> (levý horní roh), osa <strong>x</strong> je levo-pravá, osa <strong>y</strong> je shora-dolů</li>
+	<li>Na hracím poli jsou náhodně rozmístěny ingredience na lektvary, na jednom políčku může být více různých surovin a každá surovina může být vícekrát</li>
+	<li>Recepty na lektvary jsou určeny na začátku hry, oba hráči mají stejné</li>
+	<li>Propojením surovin daných receptem dojde k namíchání lektvaru a použité suroviny jsou z herního plánu odstraněny</li>
+	<li>První cestička může být postavena na jakémkoliv volném políčku, další musí navazovat na předchozí postavené. Je přípustné napojit svoji soustavu cest na cestičky protivníka</li>
+	<li>Cestičky mohou vést pouze horizontálně a vertikálně</li>
+	<li>Za namíchaný lektvar získá hráč určitý počet bodů daný jeho složitostí</li>
+	<li>Každý hráč může během hry položit 5 kamenů které znemožňují stavbu cestičky a nemohou být odstraněny.</li>
+	<li>Kámen může být položen na cestičku nebo volné políčko</li>
+	<li>V každém kole se provede:
+		<ul>
+			<li>Položení kamenů</li>
+			<li>Vybudování cestiček</li>
+			<li>Kontrola propojených surovin a uvaření lektvarů
+				<ul>
+					<li>V případě že o surovinu soupeří oba hráči, je náhodně vybrán hráč který ji získá</li>
+				</ul>
+			</li>
+			<li>Odstranění použitých surovin z mapy</li>
+		</ul>
+	</li>
+	<li>Hraje se na daný počet kol (1000) a dokud jsou na mapě suroviny</li>
+	<li>Vyhrává hráč který má na konci více bodů za uvařené lektvary</li>
+</ul>

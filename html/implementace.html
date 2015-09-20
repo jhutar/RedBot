@@ -1,0 +1,80 @@
+<h1>Implementace</h1>
+
+<p>Strategie dostane jako vstup jeden argument s ID hráče (1 nebo 2) a na standardní výstup musí vypsat do 2 vteřin jednořádkovou odpověď popisující plánovanou akci (popsáno níže). Příklad spuštění strategie:</p>
+
+<pre>
+$ ./mojeNejlepsiStrategie 1
+c 5 2
+</pre>
+
+<p>Strategie z příkladu hraje jako hráč 1 a v tomto kole staví cestičku na souřadnicích <code>[x,y] = [5,2]</code></p>
+
+<p>V pracovním adresáři dostane strategie soubor <code>playfield.txt</code> popisující herní plán a kuchařku receptů v následujícím formátu:</p>
+
+<pre>
+Kolo: 123
+Kamenu: 5
+Recepty: 3
+RGB 1
+AEE 2
+EADO 3
+Mapa:
+A:3;B:3,-:1,A:1,,,,H:1,-:0,G:3;H:3
+,,,,,@:2,-:0,,
+B:1,-:0,,-:0,,-:0,,,G:1
+,,,,,@:1,-:0,,
+,,,,,,,,
+,,,,,,,,
+C:1,,,,,,,,F:1
+,,,,,,,,
+C:3;D:3,,D:1,,,,E:1,,E:3;F:3
+</pre>
+
+<p>kde:</p>
+<ul>
+	<li><code>Kolo: 1</code> udává aktuální kolo</li>
+	<li><code>Kamenu: 5</code> udává zbývající počet kamenů</li>
+	<li><code>Recepty: 3</code> udává počet receptů</li>
+	<li><code>RGB 1</code> popisuje recept skládající se z částí R, G a B, tento lektvar je za jeden bod</li>
+	<li><code>Kolo: 1</code> udává aktuální kolo</li>
+	<li><code>Mapa: </code> po tomto návěstí následuje herní plán </li>
+</ul>
+
+<p>Herní plán je popsán následovně:</p>
+<ul>
+	<li>Jeden řádek odpovídá jednomu řádku mapy</li>
+	<li>Jednotlivé buňky na řádku jsou odděleny čárkou <code>,</code></li>
+	<li>Buňka může obsahovat několik položek oddělených středníkem <code>;</code> (<code>A:3;B:3</code>)</li>
+	<li>Každá položka se skládá ze svého jednopísmenného názvu a čísla odděleného středníkem, např:
+		<ul>
+			<li><code>A:3</code> políčko obsahuje 3 kusy suroviny A</li>
+		</ul>
+	</li>
+	<li> Vyskytovat se mohou pouze:
+		<ul>
+			<li><b>Velká písmena bez diakritiky</b> - suroviny do lektvarů
+			<li><b>Pomlčka<code>-</code></b> cestička, její číslo je vždy 0</li>
+			<li><b>Zavináč <code>@</code></b> domeček, číslo udává ID hráče (1 nebo 2)</b>
+		</ul>
+	</li>
+</ul>
+
+<p>Každá strategie musí na standardní výstup odpovědět do dvou vteřin jednou z možných akcí:</p>
+<table>
+<thead><tr><th>Akce</th><th>Význam</th></tr></thead>
+<tbody>
+<tr><td><code>c x y</code></td><td>Postav cestičku na souřadnicích [x, y]</td></tr>
+<tr><td><code>k x y</code></td><td>Polož kámen na souřadnici [x, y]</td></tr>
+<tr><td><code>n</code></td><td>Nedělej nic</td></tr>
+</tbody></table>
+
+<h2>Spuštění</h2>
+<ul>
+	<li>Vyhodnocovací program vyžaduje nainstalován pythonX.X</li>
+	<li>Typické spuštění serveru: <code>./redpot.py strategie1/random.sh strategie2/random.sh</code></li>
+	<li>Záznam hry uloží program do adresáře <code>game</code> ve formátu <code>playfield.txt.kolo</code></li>
+	<li>Grafický záznam hry je možno zobrazit spuštěním <code>./foo</code></li>
+</ul>
+
+<h2>Stažení</h2>
+<p>Stáhněte si <a href="http://foo/server.tar.gz">vyhodnocovací program</a> nebo naklonujte GitHub repozitář: <code>git clone https://github.com/jhutar/RedBot.git</code></p>
