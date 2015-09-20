@@ -4,7 +4,7 @@
 class Strat():
   """Object to hold data about strategies"""
   def __init__(self, strat, dat):
-    self.strat = start
+    self.strat = strat
     # TODO: assert the file exists and is executable
     dat_list = dat.split(',')
     self.id = int(dat_list[0])
