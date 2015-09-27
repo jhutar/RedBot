@@ -10,13 +10,12 @@ plan_list = [
   ',,,,,,|:0,,',
   'B:1,-:0,,-:0,,-:0,,,G:1',
   ',,,,,,|:0,,',
-  ',,,,,,,,',
+  ',-:2,#:0,-:2,,,,,',
   ',,,,,,,\:0,',
   'C:1,,,,,,,,F:1',
-  ',,,,,,,,',
-  'C:3;D:3,,D:1,,,,E:1,,E:3;F:3'
+  ',\:1,,,,,,,',
+  'C:3;D:3,|:1;-:3,D:1,,,,E:1,,E:3;F:3'
 ]
-
 def test_start_init():
   strat = Strat('strat0/strat0.sh', '0,0,5,ABC')
   assert strat.id == 0
@@ -47,7 +46,7 @@ def test_plan_init():
   plan = Plan(plan_list)
   assert plan[0][0] == {'C': 3, 'D': 3}
   assert plan[1][8] == {'-': 1}
-  assert plan[1][0] == {}
+  assert plan[3][0] == {}
   ##print plan
 
 def test_plan_stones():
@@ -65,6 +64,8 @@ def test_plan_stones():
 
 def test_plan_paths():
   plan = Plan(plan_list)
+  assert plan.columns_count == 9
+  assert plan.rows_count == 9
   ###print plan
   plan[0][0] = {'|': 3}
   assert plan[0][0] == {'C': 3, 'D': 3, '|': 3}
@@ -95,6 +96,65 @@ def test_plan_same_all_the_time():
   plan2 = Plan(plan_list)
   assert plan1 == plan2
 
+def test_plan_paths_for_strat():
+  plan = Plan(plan_list)
+  # Test "list_paths_for_strat"
+  expected = [
+    [7,3],
+    [6,5],
+    [1,6],
+    [3,6],
+    [5,6],
+    [6,7],
+    [7,8],
+  ]
+  expected.sort()
+  returned = plan.list_paths_for_strat(0)
+  returned.sort()
+  assert expected == returned
+  # Test "get_connected_vrcholy"
+  expected = [[0,0], [2,0], [0,2]]
+  expected.sort()
+  returned, edges_seen = plan.get_connected_vrcholy([1,0])
+  returned.sort()
+  assert expected == returned
+  # Test "get_connecting_edges"
+  expected = [[1,1]]
+  expected.sort()
+  returned = plan.get_connecting_edges([0,2])
+  returned.sort()
+  assert expected == returned
+  # Test "get_paths_for_strat"
+  expected = []
+  expected.append([
+    [8,2],
+    [6,4],
+    [0,6],
+    [2,6],
+    [4,6],
+    [6,6],
+    [6,8],
+    [8,8],
+  ])
+  expected[0].sort()
+  returned = plan.get_paths_for_strat(0)
+  returned[0].sort()
+  assert expected == returned
+  # Test "get_paths_for_strat" with stone
+  expected = []
+  expected.append([
+    [0,4],
+    [2,4],
+  ])
+  expected.append([
+    [2,4],
+    [4,4],
+  ])
+  expected[0].sort()
+  returned = plan.get_paths_for_strat(2)
+  returned[0].sort()
+  assert expected == returned
+
 def main():
   game = Game('plan.dat')
 
@@ -107,6 +167,7 @@ if __name__ == '__main__':
   test_plan_paths()
   test_plan_set_negative()
   test_plan_same_all_the_time()
+  test_plan_paths_for_strat()
 
 # I expect this should work like this:
 #
