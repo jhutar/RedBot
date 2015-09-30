@@ -17,30 +17,30 @@ plan_list = [
   'C:3;D:3,|:1;-:3,D:1,,,,E:1,,E:3;F:3'
 ]
 def test_start_init():
-  strat = Strat('strat0/strat0.sh', '0,0,5,ABC')
+  strat = Strat('strat0/strat0.sh', 0, '0,5,ABC,0')
   assert strat.id == 0
   assert strat.points == 0
   assert strat.stones == 5
   assert strat.potion == ['A', 'B', 'C']
-  strat = Strat('strat1/strat1.sh', '1,100,0,XYZ')
+  assert strat.potion_done == False
+  strat = Strat('strat1/strat1.sh', 1, '100,0,XYZ,1')
   assert strat.id == 1
   assert strat.points == 100
   assert strat.stones == 0
   assert strat.potion == ['X', 'Y', 'Z']
+  assert strat.potion_done == True
 
 def test_start_want_to_use():
   plan = Plan(plan_list)
-  strat = Strat('strat0/strat0.sh', '0,0,5,HFG')
+  strat = Strat('strat0/strat0.sh', 0, '0,5,HFG,0')
+  strat.set_cookbook({})
   expected = {
-    6: {
-      8: {'H': 1},
-    },
-    8: {
-      2: {'F': 1},
-      8: {'G': 3, 'H': 3},
-    }
+    'H': [[6, 8], [8, 8]],
+    'F': [[8, 2]],
+    'G': [[8, 8]]
   }
-  assert strat.want_to_use(plan) == expected
+  returned = strat.want_to_use(plan)
+  assert returned == expected
 
 def test_plan_init():
   plan = Plan(plan_list)

@@ -1,3 +1,12 @@
+Kolo: 123
+Startegie0: 0,5,AEH,0
+Startegie1: 0,5,CGB,0
+Startegie2: 0,5,EAD,0
+Startegie3: 0,5,GCF,0
+Kucharka:
+ACEH 2
+BDFH 2
+Mapa:
 A:3;B:3,,A:1,,,,H:1,,G:3;H:3
 ,,,,
 B:1,,,,,,,,G:1
@@ -7,7 +16,3 @@ B:1,,,,,,,,G:1
 C:1,,,,,,,,F:1
 ,,,,
 C:3;D:3,,D:1,,,,E:1,,E:3;F:3
-start:0,0,5,AEH
-start:1,0,5,CGB
-start:2,0,5,EAD
-start:3,0,5,GCF

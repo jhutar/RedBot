@@ -91,11 +91,11 @@ class Plan():
     """Return list of vrchols this given coords connects and list of edges
        we have seen when looking for these vrchols. Given coords have to be
        edge. Employs recursion so even long paths are discovered."""
-    # FIXME: What about stones?
+    # FIXME: return edges seen in same path as part of returned set othervise it is left persistent in the function
     # FIXME: This is teribly ineffective
     # FIXME: Edges seen should be `set()` which contains unique items only
     assert coords[0] % 2 == 1 or coords[1] % 2 == 1   # make sure this is edge
-    print ">>> get_connected_vrcholy: Entering function with %s and %s" % (coords, edges_seen)
+    ###print ">>> get_connected_vrcholy: Entering function with %s and %s" % (coords, edges_seen)
     # Find cells on the plan this coords connects (there might be more paths
     # on one coords)
     vrcholy = []
@@ -114,30 +114,32 @@ class Plan():
       elif k == '\\':
         vrcholy = self.__add_if_valid([coords[0]-1, coords[1]+1], vrcholy)
         vrcholy = self.__add_if_valid([coords[0]+1, coords[1]-1], vrcholy)
+    ###print ">>> get_connected_vrcholy: Have %s edges" % edges_seen
     edges_seen.append(coords)
-    print ">>> get_connected_vrcholy: Have %s" % vrcholy
+    ###print ">>> get_connected_vrcholy: Have %s edges" % edges_seen
+    ###print ">>> get_connected_vrcholy: Have %s vrcholy" % vrcholy
     # If some of the returned coords is edge, run this recursively on this
     # edge and only add what we do not have yet, if it is vrchol, add it
     # to the output set and find paths leading from that vrchol
     vrcholy_out = []
     for item in vrcholy:
       if item[0] % 2 == 1 or item[1] % 2 == 1:   # if this is edge
-        print ">>> get_connected_vrcholy: %s is edge, so runnig this function recursively on it" % item
+        ###print ">>> get_connected_vrcholy: %s is edge, so runnig this function recursively on it" % item
         if item not in edges_seen:
           edges_seen.append(item)
         if "#" in self[item[0]][item[1]]:
-          print ">>> get_connected_vrcholy: Stone found on edge %s, not going to find more vrchols connected by it" % item
+          ###print ">>> get_connected_vrcholy: Stone found on edge %s, not going to find more vrchols connected by it" % item
           continue
         vrcholy2, edges_tmp = self.get_connected_vrcholy(item, edges_seen)
         for e in edges_tmp:
           if e not in edges_seen:
             edges_seen.append(e)
-        print ">>> get_connected_vrcholy: Got back these vrcholy %s" % vrcholy2
+        ###print ">>> get_connected_vrcholy: Got back these vrcholy %s" % vrcholy2
         for item2 in vrcholy2:
           if item2 not in vrcholy_out:
             vrcholy_out.append(item2)
       else:   # if this is vrchol
-        print ">>> get_connected_vrcholy: %s is vrchol, so adding it to the output set" % item
+        ###print ">>> get_connected_vrcholy: %s is vrchol, so adding it to the output set" % item
         vrcholy_out.append(item)
         # Now we should check if there are more paths comming from this
         # vrchol, but only if there is no stone on it
@@ -152,7 +154,7 @@ class Plan():
             ###print ">>> get_connected_vrcholy: get_connecting_edges returned edge %s we know about, ignoring" % item2
             pass
           else:
-            print ">>> get_connected_vrcholy: get_connecting_edges returned new edge %s, investigating" % item2
+            ###print ">>> get_connected_vrcholy: get_connecting_edges returned new edge %s, investigating" % item2
             vrcholy2_tmp, edges_tmp = self.get_connected_vrcholy(item2)
             vrcholy2 += vrcholy2_tmp
             for e in edges_tmp:
@@ -161,7 +163,7 @@ class Plan():
         for item2 in vrcholy2:
           if item2 not in vrcholy_out:
             vrcholy_out.append(item2)
-    print ">>> get_connected_vrcholy: Returning %s (edges seen: %s)" % (vrcholy_out, edges_seen)
+    ###print ">>> get_connected_vrcholy: Returning %s (edges seen: %s)" % (vrcholy_out, edges_seen)
     return vrcholy_out, edges_seen
 
   def get_connecting_edges(self, coords):
@@ -177,7 +179,7 @@ class Plan():
       y_modif.append(-1)
     if coords[1] != self.rows_count - 1:
       y_modif.append(1)
-    print ">>> get_connecting_edges: Considering these x:%s and y:%s coordinates modificators for %s" % (x_modif, y_modif, coords)
+    ###print ">>> get_connecting_edges: Considering these x:%s and y:%s coordinates modificators for %s" % (x_modif, y_modif, coords)
     out = []
     for x_mod in x_modif:
       for y_mod in y_modif:
@@ -207,7 +209,7 @@ class Plan():
         if x_mod == -1 and y_mod == 1:   # up left
           if '\\' in self[x][y]:
             out.append([x, y])
-    print ">>> get_connecting_edges: Found connected edges on these coords %s" % out
+    ###print ">>> get_connecting_edges: Found connected edges on these coords %s" % out
     return out
 
   def list_paths_for_strat(self, strat):
@@ -218,7 +220,7 @@ class Plan():
         for k, v in self[x][y].items():
           if k in PATHS and v == strat:
             paths.append([x, y])
-    print ">>> list_paths_for_strat: Paths created by strategy %s: %s" % (strat, paths)
+    ###print ">>> list_paths_for_strat: Paths created by strategy %s: %s" % (strat, paths)
     return paths
 
   def get_paths_for_strat(self, strat):
@@ -228,16 +230,16 @@ class Plan():
     edges_seen = []
     # For every path/edge coords built by given strategy
     for coords in self.list_paths_for_strat(strat):
-      print ">>> get_paths_for_strat: Considering %s for %s" % (coords, strat)
+      ###print ">>> get_paths_for_strat: Considering %s for %s" % (coords, strat)
       processed = False
       # If we already have these coords in some path for this strategy
       if coords in edges_seen:
-        print ">>> get_paths_for_strat: Coords already known"
+        ###print ">>> get_paths_for_strat: Coords already known"
         processed = True
         break
       # If these coords are not part of this strategy
       if processed == False:
-        print ">>> get_paths_for_strat: Coords not in any of the paths, computing additional path"
+        ###print ">>> get_paths_for_strat: Coords not in any of the paths, computing additional path"
         # Compute path these coords are part of
         new, edges_tmp = self.get_connected_vrcholy(coords)
         for e in edges_tmp:
@@ -246,6 +248,7 @@ class Plan():
         new.sort()
         # And if this path is not known already, add it
         if new not in paths:
-          print ">>> get_paths_for_strat: This new path (%s) is not know yet, adding it among other paths" % new
+          ###print ">>> get_paths_for_strat: This new path (%s) is not know yet, adding it among other paths" % new
           paths.append(new)
+    ###print ">>> get_paths_for_strat: Returning:", paths
     return paths
