@@ -16,6 +16,8 @@ plan_list = [
   ',\:1,,,,,,,',
   'C:3;D:3,|:1;-:3,D:1,,,,E:1,,E:3;F:3'
 ]
+[[[0, 6],         [2, 6],         [4, 6],         [6, 4],         [6, 6],         [6, 8],                 [8, 2], [8, 8]]]
+[[[0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [7, 3], [7, 8], [8, 2], [8, 8]]]
 def test_start_init():
   strat = Strat('strat0/strat0.sh', 0, '0,5,ABC,0')
   assert strat.id == 0
@@ -112,29 +114,42 @@ def test_plan_paths_for_strat():
   returned = plan.list_paths_for_strat(0)
   returned.sort()
   assert expected == returned
-  # Test "get_connected_vrcholy"
-  expected = [[0,0], [2,0], [0,2]]
+  # Test "get_connected_cells"
+  expected = [[0,0], [1,0], [2,0], [1,1], [0,2]]
   expected.sort()
-  returned, edges_seen = plan.get_connected_vrcholy([1,0])
+  returned = plan.get_connected_cells([1,0], [])
   returned.sort()
   assert expected == returned
-  # Test "get_connecting_edges"
+  # Test "get_continuing_cells"
   expected = [[1,1]]
   expected.sort()
   returned = plan.get_connecting_edges([0,2])
   returned.sort()
   assert expected == returned
+  # Test "get_continuing_cells"
+  expected = [[0,0], [1,1], [2,0]]
+  expected.sort()
+  returned = plan.get_continuing_cells([1,0])
+  returned.sort()
+  assert expected == returned
   # Test "get_paths_for_strat"
   expected = []
   expected.append([
-    [8,2],
-    [6,4],
     [0,6],
+    [1,6],
     [2,6],
+    [3,6],
     [4,6],
+    [5,6],
+    [6,4],
+    [6,5],
     [6,6],
+    [6,7],
     [6,8],
-    [8,8],
+    [7,3],
+    [7,8],
+    [8,2],
+    [8,8]
   ])
   expected[0].sort()
   returned = plan.get_paths_for_strat(0)
@@ -144,10 +159,12 @@ def test_plan_paths_for_strat():
   expected = []
   expected.append([
     [0,4],
+    [1,4],
     [2,4],
   ])
   expected.append([
     [2,4],
+    [3,4],
     [4,4],
   ])
   expected[0].sort()
