@@ -39,6 +39,8 @@ class PlanColumn():
 class Plan():
   """Object to hold data about game plan. it can be adressed by x and y coordinates and [0,0] is in bottom left corner"""
   def __init__(self, dat):
+    assert type(dat) is list
+    assert len(dat) > 0
     self.dat = dat
     self.columns = {}
     self.columns_count = self.dat[0].count(',') + 1
