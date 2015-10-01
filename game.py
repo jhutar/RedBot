@@ -44,7 +44,7 @@ class Game():
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""
-    return [{}, {}, {}, {}]
+    return [strat.want_to_use(self.plan) for strat in self.strats]
 
   def _get_can_use(self):
     """Find ingredients wanted by more than one strategy and distribute
