@@ -19,6 +19,7 @@ class Game():
       fp = open(self.dat_file)
       for line in fp.readlines():
         self.dat.append(line.strip())
+      self.dat = filter(lambda x: x != '', self.dat)
 
   def _get_plan(self):
     """Parse plan file and return only part with map we can feed
