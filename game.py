@@ -9,13 +9,14 @@ class Game():
 
   def __init__(self, dat_file):
     self.dat_file = dat_file
+    self.dat = []
     self.plan = Plan(self._get_plan())
     self.strats = []
     for i in range(4):
       self.strats.append(Strat(self._get_strat(i)))
 
   def _ensure_dat(self):
-    if self.dat == None:
+    if self.dat == []:
       fp = open(self.dat_file)
       for line in fp.readlines():
         self.dat.append(line.strip())
@@ -24,7 +25,11 @@ class Game():
   def _get_plan(self):
     """Parse plan file and return only part with map we can feed
        to Plan constructor"""
-    pass
+    self._ensure_dat()
+    assert "Mapa:" in self.dat
+    assert len(self.dat) > self.dat.index("Mapa:") + 1
+    ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
+    return self.dat[self.dat.index("Mapa:") + 1:]
 
   def _get_strat(self):
     """Parse plan file and return only parts with strategies we can
