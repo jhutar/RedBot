@@ -172,6 +172,9 @@ def test_plan_paths_for_strat():
   returned[0].sort()
   assert expected == returned
 
+def test_game_init():
+  game = Game('plan.dat')
+
 def main():
   game = Game('plan.dat')
 
@@ -185,6 +188,7 @@ if __name__ == '__main__':
   test_plan_set_negative()
   test_plan_same_all_the_time()
   test_plan_paths_for_strat()
+  test_game_init()
 
 # I expect this should work like this:
 #
