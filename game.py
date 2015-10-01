@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+from plan import Plan
+from strat import Strat
+
 class Game():
   """Object to hold data (game plan, strategies) about game"""
 
