@@ -175,6 +175,11 @@ def test_plan_paths_for_strat():
 def test_game_init():
   game = Game('plan.dat')
 
+def test_game_match_plans():
+  game = Game('plan.dat')
+  plan = Plan(plan_list)
+  assert plan == game.plan
+
 def main():
   game = Game('plan.dat')
 
@@ -189,6 +194,7 @@ if __name__ == '__main__':
   test_plan_same_all_the_time()
   test_plan_paths_for_strat()
   test_game_init()
+  test_game_match_plans()
 
 # I expect this should work like this:
 #
