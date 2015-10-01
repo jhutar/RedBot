@@ -13,7 +13,7 @@ class Game():
     self.plan = Plan(self._get_plan())
     self.strats = []
     for i in range(4):
-      self.strats.append(Strat(self._get_strat(i)))
+      self.strats.append(Strat(*self._get_strat(i)))
 
   def _ensure_dat(self):
     if self.dat == []:
@@ -31,10 +31,16 @@ class Game():
     ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
     return self.dat[self.dat.index("Mapa:") + 1:]
 
-  def _get_strat(self):
+  def _get_strat(self, strat_id):
     """Parse plan file and return only parts with strategies we can
        feed to Start constructor"""
-    pass
+    assert type(strat_id) is int
+    id_str = str(strat_id)
+    self._ensure_dat()
+    found_strats = filter(lambda l: l.startswith("Strategie" + id_str + ": "), self.dat)
+    assert len(found_strats) == 1
+    strat_data = found_strats[0].split(": ")[1].strip()
+    return ["strat" + id_str + "/strat" + id_str + ".sh", strat_id, strat_data]
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""
