@@ -48,6 +48,7 @@ class Plan():
     self.plan = []
     for line in self.dat[::-1]:
       # Line looks like: "A:3;B:3,,A:1,-:1,,,H:1,-:2,G:3;H:3"
+      assert self.columns_count == line.count(',') + 1
       l = []
       for cell in line.split(','):
         # Cell looks like: "A:3;B:3"
