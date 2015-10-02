@@ -180,6 +180,11 @@ def test_game_match_plans():
   plan = Plan(plan_list)
   assert plan == game.plan
 
+def test_game_cookbook():
+  game = Game('plan.dat')
+  cookbook = {"ACEH":2, "BDFH":2}
+  assert cookbook == game._get_cookbook()
+
 def main():
   game = Game('plan.dat')
 
@@ -195,6 +200,7 @@ if __name__ == '__main__':
   test_plan_paths_for_strat()
   test_game_init()
   test_game_match_plans()
+  test_game_cookbook()
 
 # I expect this should work like this:
 #

@@ -52,7 +52,7 @@ class Game():
     assert "Kucharka:" in self.dat
     assert "Mapa:" in self.dat
     assert len(self.dat) > self.dat.index("Mapa:") + 1 > self.dat.index("Kucharka:")
-    return {a[0]:a[1] for a in map(str.split, self.dat[self.dat.index("Kucharka:")+1:self.dat.index("Mapa:")])}
+    return {a[0]:int(a[1]) for a in map(str.split, self.dat[self.dat.index("Kucharka:")+1:self.dat.index("Mapa:")])}
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""
