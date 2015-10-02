@@ -12,8 +12,12 @@ class Game():
     self.dat = []
     self.plan = Plan(self._get_plan())
     self.strats = []
+    cookbook = self._get_cookbook()
     for i in range(4):
-      self.strats.append(Strat(*self._get_strat(i)))
+      strategy = Strat(*self._get_strat(i))
+      strategy.set_cookbook(cookbook)
+      self.strats.append(strategy)
+    print self._get_want_to_use()
 
   def _ensure_dat(self):
     if self.dat == []:
@@ -41,6 +45,15 @@ class Game():
     assert len(found_strats) == 1
     strat_data = found_strats[0].split(": ")[1].strip()
     return ["strat" + id_str + "/strat" + id_str + ".sh", strat_id, strat_data]
+
+  def _get_cookbook(self):
+    """Parse plan file and return cookbook:
+       dict with key == potion ingrediencies and value == points for completing"""
+    self._ensure_dat()
+    assert "Kucharka:" in self.dat
+    assert "Mapa:" in self.dat
+    assert len(self.dat) > self.dat.index("Mapa:") + 1 > self.dat.index("Kucharka:")
+    return {a[0]:a[1] for a in map(str.split, self.dat[self.dat.index("Kucharka:")+1:self.dat.index("Mapa:")])}
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""

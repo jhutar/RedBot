@@ -22,7 +22,7 @@ class Strat():
     self.cookbook = {}   # dict with key == potion ingrediencies and value == points for completing
 
   def set_cookbook(self, cookbook):
-    pass
+    self.cookbook = cookbook
 
   def execute(self, plan):
     """Execute the strategy (in self.strat) in its directory with
@@ -57,7 +57,7 @@ class Strat():
     # potion, if we brew it already, it is these from cookbook
     interesting = []
     if self.potion_done:
-      for potion in self.cookbook:
+      for potion in self.cookbook.keys():
         interesting += potion
     else:
       interesting += self.potion
