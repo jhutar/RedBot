@@ -17,7 +17,6 @@ class Game():
       strategy = Strat(*self._get_strat(i))
       strategy.set_cookbook(cookbook)
       self.strats.append(strategy)
-    print self._get_want_to_use()
 
   def _ensure_dat(self):
     if self.dat == []:
