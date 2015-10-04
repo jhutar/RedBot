@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import sys
+
 from strat import Strat
 from plan import Plan
 from game import Game
@@ -172,21 +174,31 @@ def test_plan_paths_for_strat():
   returned[0].sort()
   assert expected == returned
 
-def test_game_init():
-  game = Game('plan.dat')
-
 def test_game_match_plans():
-  game = Game('plan.dat')
+  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
   plan = Plan(plan_list)
-  assert plan == game.plan
+  assert plan == game.playfield
 
 def test_game_cookbook():
-  game = Game('plan.dat')
+  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
   cookbook = {"ACEH":2, "BDFH":2}
   assert cookbook == game._get_cookbook()
 
+def test_game_base():
+  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  assert game.executables[0] == 'prvni.sh'
+  assert game.executables[1] == 'prvni.sh'
+  assert game.executables[2] == 'prvni.sh'
+  assert game.executables[3] == 'druha.sh'
+  assert game.playfield[2][8] == {'A': 1}
+  assert game.strats[0].potion == ['A','E','H']
+  assert game.strats[1].potion == ['C','G','B']
+  assert game.strats[2].potion == ['E','A','D']
+  assert game.strats[3].potion == ['G','C','F']
+  assert game._get_want_to_use() == [{'H': [[6, 8], [8, 8]]}, {'C': [[0, 0], [0, 2]], 'B': [[0, 8]]}, {}, {'C': [[0, 0], [0, 2]]}]
+
 def main():
-  game = Game('plan.dat')
+  game = Game('plan.dat', sys.argv[:1])
 
 if __name__ == '__main__':
   ###main()
@@ -198,9 +210,9 @@ if __name__ == '__main__':
   test_plan_set_negative()
   test_plan_same_all_the_time()
   test_plan_paths_for_strat()
-  test_game_init()
   test_game_match_plans()
   test_game_cookbook()
+  test_game_base()
 
 # I expect this should work like this:
 #

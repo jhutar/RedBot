@@ -7,10 +7,11 @@ from strat import Strat
 class Game():
   """Object to hold data (game plan, strategies) about game"""
 
-  def __init__(self, dat_file):
+  def __init__(self, dat_file, executables):
     self.dat_file = dat_file
     self.dat = []
-    self.plan = Plan(self._get_plan())
+    self.executables = executables
+    self.playfield = self._get_plan()
     self.strats = []
     cookbook = self._get_cookbook()
     for i in range(4):
@@ -32,7 +33,7 @@ class Game():
     assert "Mapa:" in self.dat
     assert len(self.dat) > self.dat.index("Mapa:") + 1
     ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
-    return self.dat[self.dat.index("Mapa:") + 1:]
+    return Plan(self.dat[self.dat.index("Mapa:") + 1:])
 
   def _get_strat(self, strat_id):
     """Parse plan file and return only parts with strategies we can
@@ -56,7 +57,11 @@ class Game():
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""
-    return [strat.want_to_use(self.plan) for strat in self.strats]
+    r = []
+    for s in self.strats:
+      r.append(s.want_to_use(self.playfield))
+    ###print ">>> _get_want_to_use: Returning", r
+    return r
 
   def _get_can_use(self):
     """Find ingredients wanted by more than one strategy and distribute
