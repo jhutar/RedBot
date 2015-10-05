@@ -42,7 +42,7 @@ class Game():
     self._ensure_dat()
     found_strats = filter(lambda l: l.startswith("Strategie%s: " % strat_id), self.dat)
     assert len(found_strats) == 1
-    strat_data = found_strats[0].split(": ")[1].strip()
+    strat_data = found_strats[0].split(": ")[1]
     return Strat(strat_exe, strat_id, strat_data)
 
   def _get_cookbook(self):
