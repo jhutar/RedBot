@@ -118,10 +118,13 @@ class Game():
 
   def _brew_potions(self):
     """Brew potions:
+        * check if usable ingredients are connected by our path
         * add points to strategies which brewed something
         * remove used ingredients from the map
        """
-    pass
+    can_use = self._get_can_use()
+    for i in range(len(can_use)):
+      self.starts[i].brew(self.playfield, can_use[i])
 
   def _get_answers(self):
     """Execute strat.execute() for all strategies. Ideally in parallel

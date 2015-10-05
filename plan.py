@@ -96,6 +96,17 @@ class Plan():
       pass
     return to
 
+  def use_ingredient(self, ingredient, coord, count):
+    assert self.__is_vertex(coord)
+    current = self[coord[0]][coord[1]]   # remember this is just a refference, so any change into this variable will make it back into that self[x][y]
+    assert ingredient in current
+    ###print ">>> use_ingredient: There is %s on %s, but decreasing %s by %s" % (current, coord, ingredient, count)
+    assert current[ingredient] >= count
+    current[ingredient] -= count
+    if current[ingredient] == 0:
+      del(current[ingredient])
+    ###print ">>> use_ingredient: This was left there: %s" % self[coord[0]][coord[1]]
+
   def get_connected_cells(self, coords, cells):
     """Return list of cells which are one one path where given coords are
        part of. Employs recursion so even long paths are discovered.
@@ -135,8 +146,8 @@ class Plan():
         candidates = self.__add_if_valid([coords[0], coords[1]-1], candidates)
         candidates = self.__add_if_valid([coords[0], coords[1]+1], candidates)
       if k == '/':
-        candidates = self.__add_if_valid([coords[0]+1, coords[1]-1], candidates)
-        candidates = self.__add_if_valid([coords[0]-1, coords[1]+1], candidates)
+        candidates = self.__add_if_valid([coords[0]+1, coords[1]+1], candidates)
+        candidates = self.__add_if_valid([coords[0]-1, coords[1]-1], candidates)
       if k == '-':
         candidates = self.__add_if_valid([coords[0]-1, coords[1]], candidates)
         candidates = self.__add_if_valid([coords[0]+1, coords[1]], candidates)

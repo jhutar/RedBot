@@ -201,7 +201,7 @@ def test_game_get_can_use():
   game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
   want_to_use = [
     {'A': [[2,2]], 'B': [[4,4]]},
-    {'B': [[4,4],[6,6]], 'C':[[8,8]], 'D':[[10,10]]},
+    {'B': [[4,4],[6,6]], 'C':[[8,8]], 'D':[[10,10]], 'E': [[0,0]]},
     {'D':[[12,12]]},
     {'C':[[8,8]]},
   ]
@@ -213,6 +213,32 @@ def test_game_get_can_use():
   assert ( 'C' in returned[1] and [8,8] in returned[1]['C'] ) or ( 'C' in returned[3] and [8,8] in returned[3]['C'] )
   assert [10,10] in returned[1]['D']
   assert [12,12] in returned[2]['D']
+  strat = Strat('strat0/strat0.sh', 1, '0,5,BDE,0')
+  plan_list = [
+    ',,,,,,,,,,,,D:1',
+    ',,,,,,,,,,,,',
+    ',,,,,,,,,-:1,D:1,,',
+    ',,,,,,,/:1,,,,,',
+    ',,,,,,,,C:1,,,,',
+    ',,,,,,|:1,,,,,,',
+    ',,,-:1,,-:1,B:1,,,,,,',
+    ',/:1,,,,,,,,,,,',
+    ',,,,B:1,,,,,,,,',
+    '|:1,,,,,,,,,,,,',
+    ',,A:1,,,,,,,,,,',
+    '|:1,,,,,,,,,,,,',
+    'E:2,,,,,,,,,,,,',
+  ]
+  plan = Plan(plan_list)
+  assert plan[0][0] == {'E': 2}
+  assert plan[2][2] == {'A': 1}
+  assert plan[6][6] == {'B': 1}
+  assert strat.potion_done == False
+  strat.brew(plan, returned[1])
+  assert plan[0][0] == {'E': 1}   # this is correctly decreased
+  assert plan[2][2] == {'A': 1}   # this is not touched
+  assert plan[6][6] == {}   # this is decreased to noothing on the cell
+  assert strat.potion_done == True   # we were brewing our main potion
 
 def main():
   game = Game('plan.dat', sys.argv[:1])
