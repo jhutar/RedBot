@@ -20,7 +20,7 @@ plan_list = [
 ]
 [[[0, 6],         [2, 6],         [4, 6],         [6, 4],         [6, 6],         [6, 8],                 [8, 2], [8, 8]]]
 [[[0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [7, 3], [7, 8], [8, 2], [8, 8]]]
-def test_start_init():
+def test_strat_init():
   strat = Strat('strat0/strat0.sh', 0, '0,5,ABC,0')
   assert strat.id == 0
   assert strat.points == 0
@@ -34,7 +34,7 @@ def test_start_init():
   assert strat.potion == ['X', 'Y', 'Z']
   assert strat.potion_done == True
 
-def test_start_want_to_use():
+def test_strat_want_to_use():
   plan = Plan(plan_list)
   strat = Strat('strat0/strat0.sh', 0, '0,5,HFG,0')
   strat.set_cookbook({})
@@ -245,8 +245,8 @@ def main():
 
 if __name__ == '__main__':
   ###main()
-  test_start_init()
-  test_start_want_to_use()
+  test_strat_init()
+  test_strat_want_to_use()
   test_plan_init()
   test_plan_stones()
   test_plan_paths()

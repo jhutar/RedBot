@@ -124,7 +124,7 @@ class Game():
        """
     can_use = self._get_can_use()
     for i in range(len(can_use)):
-      self.starts[i].brew(self.playfield, can_use[i])
+      self.strats[i].brew(self.playfield, can_use[i])
 
   def _get_answers(self):
     """Execute strat.execute() for all strategies. Ideally in parallel

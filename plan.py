@@ -17,8 +17,8 @@ class PlanColumn():
 
   def __setitem__(self, y, value):
     """Put some item (like stone or path) to given cell.
-       If adding a stone (i.e. "{'#': startID}"), then replace whatever is in the cell
-       If adding a path (e.g. "{'\': startID}"), then just add it to whatever is already in the cell"""
+       If adding a stone (i.e. "{'#': stratID}"), then replace whatever is in the cell
+       If adding a path (e.g. "{'\': stratID}"), then just add it to whatever is already in the cell"""
     ###print ">>> Setting [%s,%s] to '%s'" % (self.x, y, value)
     assert len(value) == 1   # only one item can be placed in one time (this is limitation of this method implementation only)
     k = value.keys()[0]
