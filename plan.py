@@ -128,7 +128,7 @@ class Plan():
       # vertex, but only if there is no stone on it
       if "#" not in self[coords[0]][coords[1]]:
         for item in self.get_connecting_edges(coords):
-          # If we have not seen that edge, discover vrcholy connected to it
+          # If we have not seen that edge, discover vertexes connected to it
           # and add it to output set
           if item not in cells:
             ###print ">>> get_connected_cells: get_connecting_edges returned new edge %s, investigating" % item
@@ -158,7 +158,7 @@ class Plan():
     return candidates
 
   def get_connecting_edges(self, coords):
-    """Return paths/edges connected to this vrchol"""
+    """Return paths/edges connected to this vertex"""
     assert self.__is_vertex(coords)   # make sure this is vertex
     x_modif = [0]
     if coords[0] != 0:
