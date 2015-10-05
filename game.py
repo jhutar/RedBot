@@ -16,7 +16,7 @@ class Game():
     self.strats = []
     cookbook = self._get_cookbook()
     for i in range(4):
-      strategy = Strat(*self._get_strat(i))
+      strategy = self._get_strat(self.executables[i], i)
       strategy.set_cookbook(cookbook)
       self.strats.append(strategy)
 
@@ -28,24 +28,22 @@ class Game():
       self.dat = filter(lambda x: x != '', self.dat)
 
   def _get_plan(self):
-    """Parse plan file and return only part with map we can feed
-       to Plan constructor"""
+    """Parse plan file and return Plan object instance"""
     self._ensure_dat()
     assert "Mapa:" in self.dat
     assert len(self.dat) > self.dat.index("Mapa:") + 1
     ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
     return Plan(self.dat[self.dat.index("Mapa:") + 1:])
 
-  def _get_strat(self, strat_id):
-    """Parse plan file and return only parts with strategies we can
-       feed to Start constructor"""
+  def _get_strat(self, strat_exe, strat_id):
+    """Parse plan file and return Strat object instance"""
+    assert type(strat_exe) is str
     assert type(strat_id) is int
-    id_str = str(strat_id)
     self._ensure_dat()
-    found_strats = filter(lambda l: l.startswith("Strategie" + id_str + ": "), self.dat)
+    found_strats = filter(lambda l: l.startswith("Strategie%s: " % strat_id), self.dat)
     assert len(found_strats) == 1
     strat_data = found_strats[0].split(": ")[1].strip()
-    return ["strat" + id_str + "/strat" + id_str + ".sh", strat_id, strat_data]
+    return Strat(strat_exe, strat_id, strat_data)
 
   def _get_cookbook(self):
     """Parse plan file and return cookbook:
