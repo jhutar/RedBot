@@ -229,3 +229,18 @@ class Plan():
         paths.append(path)
     ###print ">>> get_paths_for_strat: Returning:", paths
     return paths
+
+  def get_all_ingredients(self):
+    """Return list of all ingredients which can be found on the map"""
+    ingredients = []
+    for x in range(self.columns_count):
+      for y in range(self.rows_count):
+        if self.__is_vertex([x, y]):
+          for i in self[x][y]:
+            if i not in PATHS and i != '#':
+              if i not in ingredients:
+                ingredients.append(i)
+    ingredients.sort()
+    ###print ">>> get_all_ingredients: Returning", ingredients
+    return ingredients
+

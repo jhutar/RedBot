@@ -184,7 +184,7 @@ def test_game_cookbook():
   cookbook = {"ACEH":2, "BDFH":2}
   assert cookbook == game._get_cookbook()
 
-def test_game_base():
+def test_game_init():
   game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
   assert game.executables[0] == 'prvni.sh'
   assert game.executables[1] == 'prvni.sh'
@@ -196,6 +196,23 @@ def test_game_base():
   assert game.strats[2].potion == ['E','A','D']
   assert game.strats[3].potion == ['G','C','F']
   assert game._get_want_to_use() == [{'H': [[6, 8], [8, 8]]}, {'C': [[0, 0], [0, 2]], 'B': [[0, 8]]}, {}, {'C': [[0, 0], [0, 2]]}]
+
+def test_game_get_can_use():
+  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  want_to_use = [
+    {'A': [[2,2]], 'B': [[4,4]]},
+    {'B': [[4,4],[6,6]], 'C':[[8,8]], 'D':[[10,10]]},
+    {'D':[[12,12]]},
+    {'C':[[8,8]]},
+  ]
+  returned = game._get_can_use(want_to_use)
+  assert len(returned[0]['A']) == 1
+  assert [2,2] in returned[0]['A']
+  assert ( 'B' in returned[0] and [4,4] in returned[0]['B'] ) or ( 'B' in returned[1] and [4,4] in returned[1]['B'] )
+  assert [6,6] in returned[1]['B']
+  assert ( 'C' in returned[1] and [8,8] in returned[1]['C'] ) or ( 'C' in returned[3] and [8,8] in returned[3]['C'] )
+  assert [10,10] in returned[1]['D']
+  assert [12,12] in returned[2]['D']
 
 def main():
   game = Game('plan.dat', sys.argv[:1])
@@ -212,7 +229,8 @@ if __name__ == '__main__':
   test_plan_paths_for_strat()
   test_game_match_plans()
   test_game_cookbook()
-  test_game_base()
+  test_game_init()
+  test_game_get_can_use()
 
 # I expect this should work like this:
 #

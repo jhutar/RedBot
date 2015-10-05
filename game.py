@@ -3,6 +3,7 @@
 
 from plan import Plan
 from strat import Strat
+import random
 
 class Game():
   """Object to hold data (game plan, strategies) about game"""
@@ -63,11 +64,57 @@ class Game():
     ###print ">>> _get_want_to_use: Returning", r
     return r
 
-  def _get_can_use(self):
+  def _get_can_use(self, want_to_use=None):
     """Find ingredients wanted by more than one strategy and distribute
        these fairly"""
-    want_to_use = self._get_want_to_use()
-    return [{}, {}, {}, {}]
+    if not want_to_use:
+      # Just for testing. This should be None all the time in normal use
+      want_to_use = self._get_want_to_use()
+    ###print ">>> _get_want_to_use: Detected these want_to_use:", want_to_use
+    can_use = [{}, {}, {}, {}]
+    for i in self.playfield.get_all_ingredients():   # for all ingredients
+      seen = []   # store already processed coords here to lower count
+                  # of required iterations
+      conflicts = {'coords': [], 'strats': []}
+      for s in range(4):   # for all strategies
+        # Now check all the involved coords that they are not requested
+        # by other strategy
+        if i in want_to_use[s]:
+          for c in want_to_use[s][i]:
+            if c not in seen:   # othervise we have already considered
+                                # this coord for this ingredient
+              seen.append(c)
+              # Go through rest of strategies to find conflicts and store them
+              # in 'conflicts' structure
+              problematic = False
+              for ss in range(4):
+                if ss == s:
+                  continue
+                # Now finally detect conflicts of interests
+                if i in want_to_use[ss] and c in want_to_use[ss][i]:
+                  problematic = True
+                  if c in conflicts['coords']:
+                    conflicts['strats'][-1:].append(ss)   # FIXME: this seems fragile
+                  else:
+                    ###print ">>> _get_can_use: Detected conflict", c, i, s, ss
+                    conflicts['coords'].append(c)
+                    conflicts['strats'].append([s, ss])
+              # If there is no conflict for given ingredient/coords, just add
+              # it to the 'can_use' structure
+              if not problematic:
+                can_use[s][i] = []
+                can_use[s][i].append(c)
+      ###print ">>> _get_want_to_use: Detected these conflicts:", conflicts
+      # Now resolve the conflicts
+      for c in range(len(conflicts['coords'])):
+        ###print ">>> _get_can_use: Processing %s/%s conflict of %s" % (i, conflicts['coords'][c], conflicts['strats'][c])
+        winner = random.choice(conflicts['strats'][c])
+        ###print ">>> _get_can_use: And the winner is", winner
+        if i not in can_use[winner]:
+          can_use[winner][i] = []
+        can_use[winner][i].append(conflicts['coords'][c])
+    ###print ">>> _get_can_use: Returning", can_use
+    return can_use
 
   def _brew_potions(self):
     """Brew potions:
