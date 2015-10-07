@@ -136,24 +136,32 @@ class Plan():
     ###print ">>> get_connected_cells: Returning %s" % cells
     return cells
 
+  def __get_continuing_cells(self, coords, what):
+    """Return list of edges and vertexes connected by given type of path on
+       given coords"""
+    assert is_edge(coords)
+    candidates = []
+    ###print ">>> __get_continuing_cells: Considering %s on %s" % (what, coords)
+    if what == '|':
+      candidates = self.__add_if_valid([coords[0], coords[1]-1], candidates)
+      candidates = self.__add_if_valid([coords[0], coords[1]+1], candidates)
+    if what == '/':
+      candidates = self.__add_if_valid([coords[0]+1, coords[1]+1], candidates)
+      candidates = self.__add_if_valid([coords[0]-1, coords[1]-1], candidates)
+    if what == '-':
+      candidates = self.__add_if_valid([coords[0]-1, coords[1]], candidates)
+      candidates = self.__add_if_valid([coords[0]+1, coords[1]], candidates)
+    if what == '\\':
+      candidates = self.__add_if_valid([coords[0]-1, coords[1]+1], candidates)
+      candidates = self.__add_if_valid([coords[0]+1, coords[1]-1], candidates)
+    ###print ">>> __get_continuing_cells: Returning:", candidates
+    return candidates
+
   def get_continuing_cells(self, coords):
     """Return paths/edges or vertexes attached to given path"""
-    assert is_edge(coords)   # make sure this is edge
     candidates = []
     for k, v in self[coords[0]][coords[1]].iteritems():
-      ###print ">>> get_continuing_cells: Considering {%s: %s} on %s" % (k, v, coords)
-      if k == '|':
-        candidates = self.__add_if_valid([coords[0], coords[1]-1], candidates)
-        candidates = self.__add_if_valid([coords[0], coords[1]+1], candidates)
-      if k == '/':
-        candidates = self.__add_if_valid([coords[0]+1, coords[1]+1], candidates)
-        candidates = self.__add_if_valid([coords[0]-1, coords[1]-1], candidates)
-      if k == '-':
-        candidates = self.__add_if_valid([coords[0]-1, coords[1]], candidates)
-        candidates = self.__add_if_valid([coords[0]+1, coords[1]], candidates)
-      if k == '\\':
-        candidates = self.__add_if_valid([coords[0]-1, coords[1]+1], candidates)
-        candidates = self.__add_if_valid([coords[0]+1, coords[1]-1], candidates)
+      candidates += self.__get_continuing_cells(coords, k)
     ###print ">>> get_continuing_cells: Found cells continuing from given edge: %s" % candidates
     return candidates
 
@@ -264,6 +272,18 @@ class Plan():
     # If we are building path, we have to check if that is connected to
     # this strategy's path already
     if what in PATHS:
+      assert is_edge(coord)
       paths = self.get_paths_for_strat(who)
+      ###print ">>> put: Found these path (co)owned by strategy %s: %s" % (who, paths)
+      neighbours = self.__get_continuing_cells(coord, what)
+      ###print ">>> put: Building %s on %s would connect: %s" % (what, coord, neighbours)
+      found = False
+      for neighbour in neighbours:
+        for path in paths:
+          if neighbour in path:
+            found = True
+            break
+      if not found:
+        raise Exception("Path %s on %s would not connect to any path (co)owned by strategy %s" % (what, coord, who))
     # Finally put stone or build the path
     self[coord[0]][coord[1]] = {what: who}

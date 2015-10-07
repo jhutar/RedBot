@@ -184,13 +184,44 @@ def test_plan_paths_for_strat():
 
 def test_plan_put():
   plan = Plan(plan_list)
+  # Test we can not put unexpected char
+  failed = False
+  try:
+    plan.put('+', 0, [0,0])
+  except AssertionError:
+    failed = True
+  assert failed
+  assert plan[0][0] == {'C': 3, 'D': 3}
   # Test we can put stone
   plan.put('#', 0, [0,0])
   assert plan[0][0] == {'C': 3, 'D': 3, '#': 0}
   # Test we can build path on connected edge
+  plan.put('-', 1, [3,8])
+  assert plan[3][8] == {'-': 1}
   # Test we can not build path on not connected edge
+  failed = False
+  try:
+    plan.put('|', 0, [0,3])
+  except Exception:
+    failed = True
+  assert failed
+  assert plan[0][3] == {}
   # Test we can not build path on foreignly connected edge
+  failed = False
+  try:
+    plan.put('/', 0, [3,1])
+  except Exception:
+    failed = True
+  assert failed
+  assert plan[3][1] == {}
   # Test we can not build path on vertex
+  failed = False
+  try:
+    plan.put('/', 0, [6,6])
+  except Exception:
+    failed = True
+  assert failed
+  assert plan[6][6] == {}
 
 def test_game_match_plans():
   game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
