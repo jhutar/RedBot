@@ -284,6 +284,7 @@ class Plan():
       ###print ">>> put: Found these path (co)owned by strategy %s: %s" % (who, paths)
       neighbours = self.__get_continuing_cells(coord, what)
       ###print ">>> put: Building %s on %s would connect: %s" % (what, coord, neighbours)
+      # FIXME: When building first path, do not check neighbours
       found = False
       for neighbour in neighbours:
         for path in paths:

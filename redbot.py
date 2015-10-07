@@ -293,6 +293,10 @@ def test_game_get_can_use():
   assert plan[6][6] == {}   # this is decreased to noothing on the cell
   assert strat.potion_done == True   # we were brewing our main potion
 
+def test_game_round():
+  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game.round()
+
 def main():
   game = Game('plan.dat', sys.argv[:1])
 
@@ -310,6 +314,7 @@ if __name__ == '__main__':
   test_game_cookbook()
   test_game_init()
   test_game_get_can_use()
+  ###test_game_round()
 
 # I expect this should work like this:
 #

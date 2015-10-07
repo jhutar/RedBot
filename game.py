@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-from plan import Plan
+from plan import Plan, PATHS
 from strat import Strat
 import random
 
@@ -123,8 +123,37 @@ class Game():
   def _get_answers(self):
     """Execute strat.execute() for all strategies. Ideally in parallel
        (if Python can do reall parallel computation (?))."""
-    return ['', '', '', '']
+    return [['-', 5, 8], ['-', 3, 8], ['\\', 5, 3], ['/', 3, 1]]
 
   def round(self):
-    answer = self._get_answers()
-    # And now do all the rest
+    print self.playfield
+    strat_ids = range(len(self.strats))
+    # Load all data - done in the __init__
+    # Execute all competing strategies to get responses
+    answers = self._get_answers()
+    # Put stones on the map if some strategy wants to
+    for i in strat_ids:
+      if answers[i][0] == '#':
+        try:
+          self.playfield.put('#', i, [answers[i][1], answers[i][2]])
+        except Exception:
+          print "ERROR: failed to put %s on %s by %s" % (answers[i][0], [answers[i][1], answers[i][2]], i)
+    # Build paths on the map if some strategy wants to
+    random.shuffle(strat_ids)   # without shuffle, last strategy would have
+                                # advantage, because it would be building
+                                # path on the map with more paths than the
+                                # first one
+    for i in strat_ids:
+      if answers[i][0] in PATHS:
+        try:
+          self.playfield.put(answers[i][0], i, [answers[i][1], answers[i][2]])
+        except Exception:
+          print "ERROR: failed to put %s on %s by %s" % (answers[i][0], [answers[i][1], answers[i][2]], i)
+    # Count potions completed by each strategy in this round
+    can_uses = self._get_can_use()
+    for i in strat_ids:
+      self.strats[i].brew(self.playfield, can_uses)
+    # Dump the map
+    print self.playfield
+    for s in self.strats:
+      print s
