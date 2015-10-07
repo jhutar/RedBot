@@ -281,17 +281,17 @@ class Plan():
     if what in PATHS:
       assert is_edge(coord)
       paths = self.get_paths_for_strat(who)
-      ###print ">>> put: Found these path (co)owned by strategy %s: %s" % (who, paths)
-      neighbours = self.__get_continuing_cells(coord, what)
-      ###print ">>> put: Building %s on %s would connect: %s" % (what, coord, neighbours)
-      # FIXME: When building first path, do not check neighbours
-      found = False
-      for neighbour in neighbours:
-        for path in paths:
-          if neighbour in path:
-            found = True
-            break
-      if not found:
-        raise Exception("Path %s on %s would not connect to any path (co)owned by strategy %s" % (what, coord, who))
+      if len(paths) != 0:   # do not check neighbours if this is our first path
+        ###print ">>> put: Found these path (co)owned by strategy %s: %s" % (who, paths)
+        neighbours = self.__get_continuing_cells(coord, what)
+        ###print ">>> put: Building %s on %s would connect: %s" % (what, coord, neighbours)
+        found = False
+        for neighbour in neighbours:
+          for path in paths:
+            if neighbour in path:
+              found = True
+              break
+        if not found:
+          raise Exception("Path %s on %s would not connect to any path (co)owned by strategy %s" % (what, coord, who))
     # Finally put stone or build the path
     self[coord[0]][coord[1]] = {what: who}
