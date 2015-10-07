@@ -11,7 +11,7 @@ plan_list = [
   'A:3;B:3,-:1,A:1,,,,H:1,-:0,G:3;H:3',
   ',,,,,,|:0,,',
   'B:1,-:0,,-:0,,-:0,,,G:1',
-  ',,,,,,|:0,,',
+  '#:0,,,,,,|:0,,',
   ',-:2,#:0,-:2,,,,,',
   ',,,,,,,\:0,',
   'C:1,,,,,,,,F:1',
@@ -53,36 +53,44 @@ def test_plan_init():
   assert plan[3][0] == {}
   ##print plan
 
-def test_plan_stones():
-  plan = Plan(plan_list)
-  ###print plan
-  plan[0][0] = {'#': 3}
-  assert plan[0][0] == {'#': 3}
-  plan[0][0] = {'#': 0}   # stones can not be replaced
-  assert plan[0][0] == {'#': 3}
-  plan[1][8] = {'#': 3}
-  assert plan[1][8] == {'#': 3}
-  plan[1][0] = {'#': 3}
-  assert plan[1][0] == {'#': 3}
-  ###print plan
-
-def test_plan_paths():
+def test_plan_paths_and_stones():
   plan = Plan(plan_list)
   assert plan.columns_count == 9
   assert plan.rows_count == 9
   ###print plan
-  plan[0][0] = {'|': 3}
-  assert plan[0][0] == {'C': 3, 'D': 3, '|': 3}
-  plan[0][0] = {'/': 2}
-  plan[0][0] = {'-': 1}
-  plan[0][0] = {'\\': 0}
-  assert plan[0][0] == {'C': 3, 'D': 3, '|': 3, '/': 2, '-': 1, '\\': 0}
+  # Test that you can not build path where we have stone
+  plan[0][5] = {'|': 3}
+  assert plan[0][5] == {'#': 0}
+  # Test that you can build pathe where is another path
+  plan[1][1] = {'|': 3}
+  assert plan[1][1] == {'\\': 1, '|': 3}
+  # Test that you can put ston and you can not build path on a vertex
+  plan[0][0] = {'#': 3}
+  try:
+    plan[0][0] = {'|': 3}   # this should raise exception, but ignore it as we just want to make sure path is not added
+  except AssertionError:
+    pass
+  try:
+    plan[0][0] = {'/': 2}   # this should raise exception, but ignore it as we just want to make sure path is not added
+  except AssertionError:
+    pass
+  try:
+    plan[0][0] = {'-': 1}   # this should raise exception, but ignore it as we just want to make sure path is not added
+  except AssertionError:
+    pass
+  try:
+    plan[0][0] = {'\\': 0}   # this should raise exception, but ignore it as we just want to make sure path is not added
+  except AssertionError:
+    pass
+  assert plan[0][0] == {'C': 3, 'D': 3, '#': 3}
+  # Test that putting two stones on one field keeps one of them there (later one) and you can not build path there
   plan[2][2] = {'#': 3}
-  plan[2][2] = {'|': 3}
-  assert plan[2][2] == {'#': 3}
-  plan[4][4] = {'|': 3}
-  plan[4][4] = {'#': 3}
-  assert plan[4][4] == {'#': 3}
+  plan[2][2] = {'#': 2}
+  try:
+    plan[2][2] = {'|': 3}   # this should raise exception, but ignore it as we just want to make sure path is not added
+  except AssertionError:
+    pass
+  assert plan[2][2] == {'#': 2}
   ###print plan
 
 def test_plan_set_negative():
@@ -174,6 +182,16 @@ def test_plan_paths_for_strat():
   returned[0].sort()
   assert expected == returned
 
+def test_plan_put():
+  plan = Plan(plan_list)
+  # Test we can put stone
+  plan.put('#', 0, [0,0])
+  assert plan[0][0] == {'C': 3, 'D': 3, '#': 0}
+  # Test we can build path on connected edge
+  # Test we can not build path on not connected edge
+  # Test we can not build path on foreignly connected edge
+  # Test we can not build path on vertex
+
 def test_game_match_plans():
   game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
   plan = Plan(plan_list)
@@ -248,11 +266,11 @@ if __name__ == '__main__':
   test_strat_init()
   test_strat_want_to_use()
   test_plan_init()
-  test_plan_stones()
-  test_plan_paths()
+  test_plan_paths_and_stones()
   test_plan_set_negative()
   test_plan_same_all_the_time()
   test_plan_paths_for_strat()
+  test_plan_put()
   test_game_match_plans()
   test_game_cookbook()
   test_game_init()

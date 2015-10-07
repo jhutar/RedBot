@@ -3,12 +3,18 @@
 
 PATHS = ['|', '/', '-', '\\']
 
+def is_edge(coords):
+  return coords[0] % 2 == 1 or coords[1] % 2 == 1
+
+def is_vertex(coords):
+  return coords[0] % 2 == 0 and coords[1] % 2 == 0
+
 class PlanColumn():
   """Helper object to implement Plan[x][y] type of access"""
-  def __init__(self, plan, x):
+  def __init__(self, playfield, x):
     self.x = x
     self.column = []
-    for line in plan:
+    for line in playfield:
       self.column.append(line[self.x])
     ###print ">>> self.column:", self.column
 
@@ -17,18 +23,18 @@ class PlanColumn():
 
   def __setitem__(self, y, value):
     """Put some item (like stone or path) to given cell.
-       If adding a stone (i.e. "{'#': stratID}"), then replace whatever is in the cell
        If adding a path (e.g. "{'\': stratID}"), then just add it to whatever is already in the cell"""
     ###print ">>> Setting [%s,%s] to '%s'" % (self.x, y, value)
     assert len(value) == 1   # only one item can be placed in one time (this is limitation of this method implementation only)
     k = value.keys()[0]
     v = value.values()[0]
+    assert 0 <= v <= 3   # value is strategy ID
     if k == '#':   # lets place stone
-      assert 0 <= v <= 3   # value for stone is stratID
-      if '#' not in self.column[y]:   # only place the stone on the fields without stone
-        self.column[y] = value   # just remove whatever was on the field before
+      self.column[y][k] = v   # if there was a stone on the field, its owner
+                              # is basically replaced, but we do not care who
+                              # placed the stone
     elif k in PATHS:   # lets add some path to the field
-      assert 0 <= v <= 3
+      assert is_edge([self.x, y])
       if '#' not in self.column[y]:   # only place new path on the fields without stone
         if k not in self.column[y]:   # only place new path on the field if same path is not already there
           self.column[y][k] = v
@@ -80,12 +86,6 @@ class Plan():
   def __eq__(self, other):
     return self.plan == other.plan
 
-  def __is_edge(self, coords):
-    return coords[0] % 2 == 1 or coords[1] % 2 == 1
-
-  def __is_vertex(self, coords):
-    return coords[0] % 2 == 0 and coords[1] % 2 == 0
-
   def __add_if_valid(self, what, to):
     """Returns 'to' with 'what' apended if 'what' are valid coords"""
     if 0 <= what[0] <= self.columns_count-1 and 0 <= what[1] <= self.rows_count-1:
@@ -97,7 +97,7 @@ class Plan():
     return to
 
   def use_ingredient(self, ingredient, coord, count):
-    assert self.__is_vertex(coord)
+    assert is_vertex(coord)
     current = self[coord[0]][coord[1]]   # remember this is just a refference, so any change into this variable will make it back into that self[x][y]
     assert ingredient in current
     ###print ">>> use_ingredient: There is %s on %s, but decreasing %s by %s" % (current, coord, ingredient, count)
@@ -114,7 +114,7 @@ class Plan():
     ###print ">>> get_connected_cells: Entering function with %s and %s" % (coords, cells)
     if coords not in cells:   # add starting coords to the output set
       cells.append(coords)
-    if self.__is_edge(coords):
+    if is_edge(coords):
       # Find cells on the plan this coords connects (there might be more paths
       # on one coords)
       for item in self.get_continuing_cells(coords):
@@ -138,7 +138,7 @@ class Plan():
 
   def get_continuing_cells(self, coords):
     """Return paths/edges or vertexes attached to given path"""
-    assert self.__is_edge(coords)   # make sure this is edge
+    assert is_edge(coords)   # make sure this is edge
     candidates = []
     for k, v in self[coords[0]][coords[1]].iteritems():
       ###print ">>> get_continuing_cells: Considering {%s: %s} on %s" % (k, v, coords)
@@ -159,7 +159,7 @@ class Plan():
 
   def get_connecting_edges(self, coords):
     """Return paths/edges connected to this vertex"""
-    assert self.__is_vertex(coords)   # make sure this is vertex
+    assert is_vertex(coords)   # make sure this is vertex
     x_modif = [0]
     if coords[0] != 0:
       x_modif.append(-1)
@@ -246,7 +246,7 @@ class Plan():
     ingredients = []
     for x in range(self.columns_count):
       for y in range(self.rows_count):
-        if self.__is_vertex([x, y]):
+        if is_vertex([x, y]):
           for i in self[x][y]:
             if i not in PATHS and i != '#':
               if i not in ingredients:
@@ -255,3 +255,15 @@ class Plan():
     ###print ">>> get_all_ingredients: Returning", ingredients
     return ingredients
 
+  def put(self, what, who, coord):
+    """Build stone or path (param 'what') to given coords (param 'coord').
+       When building path, it have to be connected with paths of this strategy
+       (given by 'who')."""
+    assert what in PATHS + ['#']
+    ###print ">>> put: Going to build '%s' for strategy '%s' on %s" % (what, who, coord)
+    # If we are building path, we have to check if that is connected to
+    # this strategy's path already
+    if what in PATHS:
+      paths = self.get_paths_for_strat(who)
+    # Finally put stone or build the path
+    self[coord[0]][coord[1]] = {what: who}
