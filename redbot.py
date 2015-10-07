@@ -239,6 +239,7 @@ def test_game_cookbook():
 
 def test_game_init():
   game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  assert game.round == 123
   assert game.executables[0] == 'prvni.sh'
   assert game.executables[1] == 'prvni.sh'
   assert game.executables[2] == 'prvni.sh'

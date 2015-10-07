@@ -12,6 +12,7 @@ class Game():
     self.dat_file = dat_file
     self.dat = []
     self.executables = executables
+    self.round = self._get_round()
     self.playfield = self._get_plan()
     self.strats = []
     cookbook = self._get_cookbook()
@@ -26,6 +27,12 @@ class Game():
       for line in fp.readlines():
         self.dat.append(line.strip())
       self.dat = filter(lambda x: x != '', self.dat)
+
+  def _get_round(self):
+    """Parse plan file and return round we are on now"""
+    self._ensure_dat()
+    assert self.dat[0].startswith("Kolo: ")
+    return int(self.dat[0][6:])
 
   def _get_plan(self):
     """Parse plan file and return Plan object instance"""
@@ -128,6 +135,7 @@ class Game():
   def round(self):
     print self.playfield
     strat_ids = range(len(self.strats))
+    # TODO: Do something if we are above allowed rounds cout
     # Load all data - done in the __init__
     # Execute all competing strategies to get responses
     answers = self._get_answers()
@@ -153,6 +161,8 @@ class Game():
     can_uses = self._get_can_use()
     for i in strat_ids:
       self.strats[i].brew(self.playfield, can_uses)
+    # Increase rounds counter because this round is over
+    self.round += 1
     # Dump the map
     print self.playfield
     for s in self.strats:
