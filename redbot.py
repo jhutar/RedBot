@@ -67,30 +67,34 @@ def test_plan_paths_and_stones():
   # Test that you can put ston and you can not build path on a vertex
   plan[0][0] = {'#': 3}
   try:
-    plan[0][0] = {'|': 3}   # this should raise exception, but ignore it as we just want to make sure path is not added
+    plan[0][0] = {'|': 3}   # this should raise exception, but ignore it as we will make sure path is not added
   except AssertionError:
     pass
   try:
-    plan[0][0] = {'/': 2}   # this should raise exception, but ignore it as we just want to make sure path is not added
+    plan[0][0] = {'/': 2}   # this should raise exception, but ignore it as we will make sure path is not added
   except AssertionError:
     pass
   try:
-    plan[0][0] = {'-': 1}   # this should raise exception, but ignore it as we just want to make sure path is not added
+    plan[0][0] = {'-': 1}   # this should raise exception, but ignore it as we will make sure path is not added
   except AssertionError:
     pass
   try:
-    plan[0][0] = {'\\': 0}   # this should raise exception, but ignore it as we just want to make sure path is not added
+    plan[0][0] = {'\\': 0}   # this should raise exception, but ignore it as we will make sure path is not added
   except AssertionError:
     pass
   assert plan[0][0] == {'C': 3, 'D': 3, '#': 3}
-  # Test that putting two stones on one field keeps one of them there (later one) and you can not build path there
+  # Test that putting two stones on one field keeps one first there (but second attempt passes although stone is not added) and you can not build path there
   plan[2][2] = {'#': 3}
   plan[2][2] = {'#': 2}
   try:
-    plan[2][2] = {'|': 3}   # this should raise exception, but ignore it as we just want to make sure path is not added
+    plan[2][2] = {'|': 3}   # this should raise exception, but ignore it as we will make sure path is not added
   except AssertionError:
     pass
-  assert plan[2][2] == {'#': 2}
+  assert plan[2][2] == {'#': 3}
+  # Test you cano not replace someones path of same type (but action trying to do so passes)
+  plan[3][3] = {'/': 3}
+  plan[3][3] = {'/': 2}
+  assert plan[3][3] == {'/': 3}
   ###print plan
 
 def test_plan_set_negative():

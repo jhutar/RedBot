@@ -30,13 +30,20 @@ class PlanColumn():
     v = value.values()[0]
     assert 0 <= v <= 3   # value is strategy ID
     if k == '#':   # lets place stone
-      self.column[y][k] = v   # if there was a stone on the field, its owner
-                              # is basically replaced, but we do not care who
-                              # placed the stone
+      # If there is already a stone on the field, do not replace its owner,
+      # just silently ignore the action
+      if '#' not in self.column[y]:
+        self.column[y][k] = v
     elif k in PATHS:   # lets add some path to the field
       assert is_edge([self.x, y])
       if '#' not in self.column[y]:   # only place new path on the fields without stone
         if k not in self.column[y]:   # only place new path on the field if same path is not already there
+          # If there is already path of a given type on the field,
+          # do not replace its owner, just silently ignore the action
+          # Note: If you were allowed to build given type of the path on given
+          #       coords, no harm is done if we ignore your request because
+          #       there already is same path, because that means that that
+          #       path is actually co-owned by you
           self.column[y][k] = v
     else:
       raise Exception("Do not know how to set this value (%s, %s, %s)" % (self.x, y, value))
