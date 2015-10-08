@@ -27,13 +27,10 @@ class Strat():
     if dat_list[3] == '1':
       self.potion_done = True
     assert self.potion_done in (True, False)
-    self.cookbook = {}   # dict with key == potion ingrediencies and value == points for completing
+    self.cookbook = []   # list of lists of ingrediens for each potion, please set it directly
 
   def __str__(self):
     return "[%s] %s (points: %s, stones: %s, main potion: %s, main potion done: %s)" % (self.id, self.stratbin, self.points, self.stones, self.potion, self.potion_done)
-
-  def set_cookbook(self, cookbook):
-    self.cookbook = cookbook
 
   def get_cookbook(self):
     """Return list of ingredients for each potion"""
@@ -78,11 +75,11 @@ class Strat():
     potions = self.get_cookbook()
     used = {}
     # Create structure we will use to store ingredients we will actually use
-    for potion in self.get_cookbook():
+    for potion in potions:
       for ingredient in potion:
         used[ingredient] = []
     # Go through all paths and potions and check which of them we can brew
-    for potion in self.get_cookbook():
+    for potion in potions:
       ###print ">>> brew: Checking potion", potion
       ingredient_use = {}
       for ingredient in potion:
@@ -138,8 +135,11 @@ class Strat():
     # i.e. if whe have not brew basic potion it is only these from basic
     # potion, if we brew it already, it is these from cookbook
     interesting = []
-    for potion in self.get_cookbook():
-      interesting += potion
+    if self.potion_done:
+      for potion in self.get_cookbook():
+        interesting += potion
+    else:
+      interesting = self.potion
     ###print ">>> want_to_use: Interesting:", interesting
     # Now only get ingredients we are interested in
     interested_ingredients = {}

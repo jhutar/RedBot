@@ -41,7 +41,7 @@ def test_strat_init():
 def test_strat_want_to_use():
   plan = Plan(plan_list)
   strat = Strat('examples/prvni.sh', 0, '0,5,HFG,0')
-  strat.set_cookbook({})
+  strat.cookbook = []
   expected = {
     'H': [[6, 8], [8, 8]],
     'F': [[8, 2]],
@@ -243,7 +243,7 @@ def test_game_match_plans():
 
 def test_game_cookbook():
   game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
-  cookbook = {"ACEH":2, "BDFH":2}
+  cookbook = [['A','C','E'], ['B','D','F']]
   assert cookbook == game._get_cookbook()
 
 def test_game_init():
@@ -312,19 +312,19 @@ def main():
 
 if __name__ == '__main__':
   ###main()
-  #test_strat_init()
-  #test_strat_want_to_use()
+  test_strat_init()
+  test_strat_want_to_use()
   test_strat_execute()
-  #test_plan_init()
-  #test_plan_paths_and_stones()
-  #test_plan_set_negative()
-  #test_plan_same_all_the_time()
-  #test_plan_paths_for_strat()
-  #test_plan_put()
-  #test_game_match_plans()
-  #test_game_cookbook()
-  #test_game_init()
-  #test_game_get_can_use()
+  test_plan_init()
+  test_plan_paths_and_stones()
+  test_plan_set_negative()
+  test_plan_same_all_the_time()
+  test_plan_paths_for_strat()
+  test_plan_put()
+  test_game_match_plans()
+  test_game_cookbook()
+  test_game_init()
+  test_game_get_can_use()
   ###test_game_round()
 
 # I expect this should work like this:

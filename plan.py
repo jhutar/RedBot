@@ -310,7 +310,7 @@ class Plan():
     if not who.potion_done:
       fp.write("Hlavni: %s\n" % ''.join(who.potion))
     fp.write("Kucharka:\n")
-    for p in who.get_cookbook():
+    for p in who.cookbook:
       fp.write("%s\n" % ''.join(p))
     fp.write("Mapa:\n")
     fp.write(str(self))

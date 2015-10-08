@@ -18,7 +18,7 @@ class Game():
     cookbook = self._get_cookbook()
     for i in range(4):
       strategy = self._get_strat(self.executables[i], i)
-      strategy.set_cookbook(cookbook)
+      strategy.cookbook = cookbook
       self.strats.append(strategy)
 
   def _ensure_dat(self):
@@ -59,7 +59,10 @@ class Game():
     assert "Kucharka:" in self.dat
     assert "Mapa:" in self.dat
     assert len(self.dat) > self.dat.index("Mapa:") + 1 > self.dat.index("Kucharka:")
-    return {a[0]:int(a[1]) for a in map(str.split, self.dat[self.dat.index("Kucharka:")+1:self.dat.index("Mapa:")])}
+    cookbook_str = self.dat[self.dat.index("Kucharka:")+1:self.dat.index("Mapa:")]
+    ###print ">>> _get_cookbook: Read:", cookbook_str
+    ###print ">>> _get_cookbook: Parsed:", [list(recipe_str) for recipe_str in cookbook_str]
+    return [list(recipe_str) for recipe_str in cookbook_str]
 
   def _get_want_to_use(self):
     """Execute strat.want_to_use() for all strategies"""
