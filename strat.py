@@ -1,10 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import os
+import os.path
+import subprocess
+
 class Strat():
   """Object to hold data about strategies"""
   def __init__(self, stratbin, stratid, dat):
-    self.stratbin = stratbin   # name of executable (will be executed in its WD)
+    self.stratwd = os.path.dirname(stratbin)   # directory of this executable, we will cd there before executing it
+    assert os.path.isdir(self.stratwd)
+    self.stratbin = os.path.basename(stratbin)   # name of executable (will be executed in its WD via './something')
+    assert os.path.isfile(os.path.join(self.stratwd, self.stratbin))
+    assert os.access(os.path.join(self.stratwd, self.stratbin), os.X_OK)
     # TODO: assert the file exists and is executable
     self.id = stratid   # ID strategy have (0 to 3)
     assert 3 >= self.id >= 0
@@ -36,12 +44,28 @@ class Strat():
 
   def execute(self, plan):
     """Execute the strategy (in self.strat) in its directory with
-       following options: <strategy_id> <datafile_path> <potion>
+       <strategy_id> option. Threre will be file playfield.txt with
+       all the required data in CWD of the strategy.
        Make sure we have some way how to run strategy as different
        user, under some ulimit settings (both not by default) and
        with timeout of, say, 3 seconds. Return STDOUT, log STDERR.
        """
-    return ""
+    # Change directory to where strategy lives
+    wd = os.getcwd()
+    ###print ">>> execute: RedBot WD is", wd
+    os.chdir(self.stratwd)
+    ###print ">>> execute: Strategy WD is", self.stratwd
+    # Create playfield.txt file for this strategy
+    ### TODO
+    # Execute the strategy
+    ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
+    out = subprocess.check_output(['./'+self.stratbin, str(self.id)])
+    ###print ">>> execute: Returned:", out
+    # Change directory back where RedBot lives
+    os.chdir(wd)
+    out_split = out.split(' ')
+    out_list = [out_split[0], int(out_split[1]), int(out_split[2])]
+    return out_list
 
   def brew(self, plan, can_use):
     """Brew potions:

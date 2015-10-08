@@ -21,22 +21,26 @@ plan_list = [
 [[[0, 6],         [2, 6],         [4, 6],         [6, 4],         [6, 6],         [6, 8],                 [8, 2], [8, 8]]]
 [[[0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [7, 3], [7, 8], [8, 2], [8, 8]]]
 def test_strat_init():
-  strat = Strat('strat0/strat0.sh', 0, '0,5,ABC,0')
+  strat = Strat('examples/prvni.sh', 0, '0,5,ABC,0')
   assert strat.id == 0
   assert strat.points == 0
   assert strat.stones == 5
   assert strat.potion == ['A', 'B', 'C']
   assert strat.potion_done == False
-  strat = Strat('strat1/strat1.sh', 1, '100,0,XYZ,1')
+  assert strat.stratwd == 'examples'
+  assert strat.stratbin == 'prvni.sh'
+  strat = Strat('examples/druha.sh', 1, '100,0,XYZ,1')
   assert strat.id == 1
   assert strat.points == 100
   assert strat.stones == 0
   assert strat.potion == ['X', 'Y', 'Z']
   assert strat.potion_done == True
+  assert strat.stratwd == 'examples'
+  assert strat.stratbin == 'druha.sh'
 
 def test_strat_want_to_use():
   plan = Plan(plan_list)
-  strat = Strat('strat0/strat0.sh', 0, '0,5,HFG,0')
+  strat = Strat('examples/prvni.sh', 0, '0,5,HFG,0')
   strat.set_cookbook({})
   expected = {
     'H': [[6, 8], [8, 8]],
@@ -45,6 +49,11 @@ def test_strat_want_to_use():
   }
   returned = strat.want_to_use(plan)
   assert returned == expected
+
+def test_strat_execute():
+  strat = Strat('examples/prvni.sh', 0, '0,5,ABC,0')
+  plan = Plan(plan_list)
+  assert strat.execute(plan) == ['|', 1, 3]
 
 def test_plan_init():
   plan = Plan(plan_list)
@@ -228,22 +237,22 @@ def test_plan_put():
   assert plan[6][6] == {}
 
 def test_game_match_plans():
-  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   plan = Plan(plan_list)
   assert plan == game.playfield
 
 def test_game_cookbook():
-  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   cookbook = {"ACEH":2, "BDFH":2}
   assert cookbook == game._get_cookbook()
 
 def test_game_init():
-  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   assert game.round == 123
-  assert game.executables[0] == 'prvni.sh'
-  assert game.executables[1] == 'prvni.sh'
-  assert game.executables[2] == 'prvni.sh'
-  assert game.executables[3] == 'druha.sh'
+  assert game.executables[0] == 'examples/prvni.sh'
+  assert game.executables[1] == 'examples/prvni.sh'
+  assert game.executables[2] == 'examples/prvni.sh'
+  assert game.executables[3] == 'examples/druha.sh'
   assert game.playfield[2][8] == {'A': 1}
   assert game.strats[0].potion == ['A','E','H']
   assert game.strats[1].potion == ['C','G','B']
@@ -252,7 +261,7 @@ def test_game_init():
   assert game._get_want_to_use() == [{'H': [[6, 8], [8, 8]]}, {'C': [[0, 0], [0, 2]], 'B': [[0, 8]]}, {}, {'C': [[0, 0], [0, 2]]}]
 
 def test_game_get_can_use():
-  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   want_to_use = [
     {'A': [[2,2]], 'B': [[4,4]]},
     {'B': [[4,4],[6,6]], 'C':[[8,8]], 'D':[[10,10]], 'E': [[0,0]]},
@@ -267,7 +276,7 @@ def test_game_get_can_use():
   assert ( 'C' in returned[1] and [8,8] in returned[1]['C'] ) or ( 'C' in returned[3] and [8,8] in returned[3]['C'] )
   assert [10,10] in returned[1]['D']
   assert [12,12] in returned[2]['D']
-  strat = Strat('strat0/strat0.sh', 1, '0,5,BDE,0')
+  strat = Strat('examples/prvni.sh', 1, '0,5,BDE,0')
   plan_list = [
     ',,,,,,,,,,,,D:1',
     ',,,,,,,,,,,,',
@@ -295,7 +304,7 @@ def test_game_get_can_use():
   assert strat.potion_done == True   # we were brewing our main potion
 
 def test_game_round():
-  game = Game('plan.dat', ['prvni.sh', 'prvni.sh', 'prvni.sh', 'druha.sh'])
+  game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   game.round()
 
 def main():
@@ -305,6 +314,7 @@ if __name__ == '__main__':
   ###main()
   test_strat_init()
   test_strat_want_to_use()
+  test_strat_execute()
   test_plan_init()
   test_plan_paths_and_stones()
   test_plan_set_negative()
