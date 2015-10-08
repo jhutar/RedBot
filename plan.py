@@ -85,8 +85,13 @@ class Plan():
   def __str__(self):
     out = ''
     for y in range(len(self.dat)-1, -1, -1):
+      on_row = []
       for x in range(len(self.dat)):
-        out += str(self[x][y])
+        on_cell = []
+        for k, v in self[x][y].iteritems():
+          on_cell.append("%s:%s" % (k, v))
+        on_row.append(';'.join(on_cell))
+      out += ','.join(on_row)
       out += "\n"
     return out
 
@@ -295,3 +300,18 @@ class Plan():
           raise Exception("Path %s on %s would not connect to any path (co)owned by strategy %s" % (what, coord, who))
     # Finally put stone or build the path
     self[coord[0]][coord[1]] = {what: who}
+
+  def dump_for_strat(self, round, who):
+    """Dump map customized for given strategy as 'playfield.txt' to current directory"""
+    fp = open('playfield.txt', 'w')
+    fp.write("Kolo: %s\n" % round)
+    fp.write("Bodu: %s\n" % who.points)
+    fp.write("Kamenu: %s\n" % who.stones)
+    if not who.potion_done:
+      fp.write("Hlavni: %s\n" % ''.join(who.potion))
+    fp.write("Kucharka:\n")
+    for p in who.get_cookbook():
+      fp.write("%s\n" % ''.join(p))
+    fp.write("Mapa:\n")
+    fp.write(str(self))
+    fp.close()

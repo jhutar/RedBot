@@ -130,7 +130,7 @@ class Game():
   def _get_answers(self):
     """Execute strat.execute() for all strategies. Ideally in parallel
        (if Python can do reall parallel computation (?))."""
-    return [strat.execute(self.playfield) for strat in self.strats]
+    return [strat.execute(self.round, self.playfield) for strat in self.strats]
 
   def round(self):
     print self.playfield

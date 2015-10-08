@@ -42,7 +42,7 @@ class Strat():
     else:
       return [self.potion]
 
-  def execute(self, plan):
+  def execute(self, round, plan):
     """Execute the strategy (in self.strat) in its directory with
        <strategy_id> option. Threre will be file playfield.txt with
        all the required data in CWD of the strategy.
@@ -57,6 +57,7 @@ class Strat():
     ###print ">>> execute: Strategy WD is", self.stratwd
     # Create playfield.txt file for this strategy
     ### TODO
+    plan.dump_for_strat(round, self)
     # Execute the strategy
     ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
     out = subprocess.check_output(['./'+self.stratbin, str(self.id)])
