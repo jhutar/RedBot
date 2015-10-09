@@ -63,6 +63,34 @@ def test_plan_init():
   assert plan[3][0] == {}
   ##print plan
 
+def test_plan_dump_globaly():
+  strat0 = Strat('examples/prvni.sh', 0, '0,5,ABC,0')
+  strat1 = Strat('examples/druha.sh', 1, '1,4,DEF,1')
+  strat2 = Strat('examples/druha.sh', 2, '2,3,GHI,1')
+  strat3 = Strat('examples/druha.sh', 3, '3,2,JKL,1')
+  strats = [strat0, strat1, strat2, strat3]
+  plan = Plan(plan_list)
+  cookbook = [['M','N','O'],['P','Q','R'],['S','T','U']]
+  plan.dump_globaly('/tmp/playground.txt', 0, strats, cookbook)
+  game = Game('/tmp/playground.txt', ['examples/prvni.sh', 'examples/druha.sh', 'examples/druha.sh', 'examples/druha.sh'])
+  assert game.round == 0
+  assert game.playfield[0][0] == {'C':3, 'D':3}
+  assert game._get_cookbook() == cookbook
+  assert game.strats[0].id == 0
+  assert game.strats[0].points == 0
+  assert game.strats[0].stones == 5
+  assert game.strats[0].potion == ['A','B','C']
+  assert game.strats[0].potion_done == False
+  assert game.strats[0].stratbin == 'prvni.sh'
+  assert game.strats[0].cookbook == cookbook
+  assert game.strats[3].id == 3
+  assert game.strats[3].points == 3
+  assert game.strats[3].stones == 2
+  assert game.strats[3].potion == ['J','K','L']
+  assert game.strats[3].potion_done == True
+  assert game.strats[3].stratbin == 'druha.sh'
+  assert game.strats[3].cookbook == cookbook
+
 def test_plan_paths_and_stones():
   plan = Plan(plan_list)
   assert plan.columns_count == 9
@@ -317,6 +345,7 @@ if __name__ == '__main__':
   test_strat_want_to_use()
   test_strat_execute()
   test_plan_init()
+  test_plan_dump_globaly()
   test_plan_paths_and_stones()
   test_plan_set_negative()
   test_plan_same_all_the_time()

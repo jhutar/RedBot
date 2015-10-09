@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import os
 import os.path
 
 PATHS = ['|', '/', '-', '\\']
@@ -313,6 +314,20 @@ class Plan():
       fp.write("Hlavni: %s\n" % ''.join(who.potion))
     fp.write("Kucharka:\n")
     for p in who.cookbook:
+      fp.write("%s\n" % ''.join(p))
+    fp.write("Mapa:\n")
+    fp.write(str(self))
+    fp.close()
+
+  def dump_globaly(self, where, round, strats, cookbook):
+    """Dump map customized for given strategy as 'playfield.txt' to where directory"""
+    fp = open(where, 'w')
+    fp.write("Kolo: %s\n" % round)
+    for s in strats:
+      s_dat = ','.join([str(s.points), str(s.stones), ''.join(s.potion), '1' if s.potion_done else '0'])
+      fp.write("Strategie%s: %s\n" % (s.id, s_dat))
+    fp.write("Kucharka:\n")
+    for p in cookbook:
       fp.write("%s\n" % ''.join(p))
     fp.write("Mapa:\n")
     fp.write(str(self))
