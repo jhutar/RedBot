@@ -59,6 +59,7 @@ class Strat():
     # We do expect playfield.txt file for this strategy exists
     # Execute the strategy
     ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
+    # FIXME: Add some ulimit, runuser and so on
     out = subprocess.check_output(['./'+self.stratbin, str(self.id)])
     ###print ">>> execute: Returned:", out
     # Change directory back where RedBot lives
