@@ -5,6 +5,8 @@ import os
 import os.path
 import subprocess
 
+from plan import PATHS
+
 class Strat():
   """Object to hold data about strategies"""
   def __init__(self, stratbin, stratid, dat):
@@ -35,8 +37,10 @@ class Strat():
   def get_cookbook(self):
     """Return list of ingredients for each potion"""
     if self.potion_done:
+      ###print ">>> get_cookbook: [%s] potion done? %s, returning %s" % (self.id, self.potion_done, self.cookbook)
       return self.cookbook
     else:
+      ###print ">>> get_cookbook: [%s] potion done? %s, returning %s" % (self.id, self.potion_done, [self.potion])
       return [self.potion]
 
   def execute(self):
@@ -60,7 +64,16 @@ class Strat():
     # Change directory back where RedBot lives
     os.chdir(wd)
     out_split = out.split(' ')
-    out_list = [out_split[0], int(out_split[1]), int(out_split[2])]
+    if len(out_split) != 3:
+      return []
+    if out_split[0] not in PATHS + ['#']:
+      return []
+    try:
+      out_x = int(out_split[1])
+      out_y = int(out_split[2])
+    except ValueError:
+      return []
+    out_list = [out_split[0], out_x, out_y]
     return out_list
 
   def brew(self, plan, can_use):
@@ -69,6 +82,7 @@ class Strat():
         * add points to strategies which brewed something
         * remove used ingredients from the map
        """
+    ###print ">>> brew: Strat %s can use %s" % (self.id, can_use)
     paths = plan.get_paths_for_strat(self.id)
     potions = self.get_cookbook()
     used = {}
@@ -95,19 +109,22 @@ class Strat():
                     ###print ">>> brew: There is %s on %s. Taking it." % (ingredient, coord)
                     ingredient_use[ingredient].append(coord)
       # Count potions we will create
-      count = 1000000   # FIXME
+      count = 1000000   # FIXME: it is ugly to hardcode this
       for coords in ingredient_use.values():
+        # FIXME: This do not take count of given ingredient on a given coords into advice
         if len(coords) < count:
           count = len(coords)
-      ###print ">>> brew: Going to brew %s of %s potion: %s" % (count, potion, ingredient_use)
+      ###print ">>> brew: Going to brew %s of %s potion from %s" % (count, potion, ingredient_use)
       # Decrease ingredient counts on the map
       for ingredient, coords in ingredient_use.iteritems():
+        # FIXME: we should only remove 'count' of ingredients
         for coord in coords:
           plan.use_ingredient(ingredient, coord, count)
       # Add points for brewed potion
       self.points += count
+      # FIXME: This all above should be per strat and per its connected path!
       # If this was our main potion, mark it as done
-      if potion == self.potion:
+      if count > 0 and potion == self.potion:
         self.potion_done = True
 
   def want_to_use(self, plan):

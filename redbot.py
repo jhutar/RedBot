@@ -337,24 +337,26 @@ def test_game_round():
   game.round()
 
 def main():
-  game = Game('plan.dat', sys.argv[:1])
+  game = Game('playfields/basic.txt', sys.argv[1:])
+  for r in range(7):
+    game.play_round()
 
 if __name__ == '__main__':
-  ###main()
-  test_strat_init()
-  test_strat_want_to_use()
-  test_strat_execute()
-  test_plan_init()
-  test_plan_dump_globaly()
-  test_plan_paths_and_stones()
-  test_plan_set_negative()
-  test_plan_same_all_the_time()
-  test_plan_paths_for_strat()
-  test_plan_put()
-  test_game_match_plans()
-  test_game_cookbook()
-  test_game_init()
-  test_game_get_can_use()
+  main()
+  #test_strat_init()
+  #test_strat_want_to_use()
+  #test_strat_execute()
+  #test_plan_init()
+  #test_plan_dump_globaly()
+  #test_plan_paths_and_stones()
+  #test_plan_set_negative()
+  #test_plan_same_all_the_time()
+  #test_plan_paths_for_strat()
+  #test_plan_put()
+  #test_game_match_plans()
+  #test_game_cookbook()
+  #test_game_init()
+  #test_game_get_can_use()
   ###test_game_round()
 
 # I expect this should work like this:

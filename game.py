@@ -9,16 +9,18 @@ class Game():
   """Object to hold data (game plan, strategies) about game"""
 
   def __init__(self, dat_file, executables):
+    ###print ">>> __init__: dat_file:", dat_file
+    ###print ">>> __init__: executables:", executables
     self.dat_file = dat_file
     self.dat = []
     self.executables = executables
     self.round = self._get_round()
     self.playfield = self._get_plan()
     self.strats = []
-    cookbook = self._get_cookbook()
+    self.cookbook = self._get_cookbook()
     for i in range(4):
       strategy = self._get_strat(self.executables[i], i)
-      strategy.cookbook = cookbook
+      strategy.cookbook = self.cookbook
       self.strats.append(strategy)
 
   def _ensure_dat(self):
@@ -134,13 +136,17 @@ class Game():
     """Execute strat.execute() for all strategies. Ideally in parallel
        (if Python can do reall parallel computation (?))."""
     out = []
-    for s in self.starts:
-      self.playfield.dump_for_strat(s.stratwd, round, s)
-      out.append(strat.execute())
+    for s in self.strats:
+      self.playfield.dump_for_strat(self.round, s)
+      out.append(s.execute())
+    print ">>> _get_answers:", out
     return out
 
-  def round(self):
+  def play_round(self):
+    print "===== round %s =====" % self.round
     print self.playfield
+    for s in self.strats:
+      print s
     strat_ids = range(len(self.strats))
     # TODO: Do something if we are above allowed rounds cout
     # Load all data - done in the __init__
@@ -148,18 +154,22 @@ class Game():
     answers = self._get_answers()
     # Put stones on the map if some strategy wants to
     for i in strat_ids:
-      if answers[i][0] == '#':
-        try:
-          self.playfield.put('#', i, [answers[i][1], answers[i][2]])
-        except Exception:
-          print "ERROR: failed to put %s on %s by %s" % (answers[i][0], [answers[i][1], answers[i][2]], i)
+      if len(answers[i]) != 0 and answers[i][0] == '#':
+        if self.strats[i].stones > 0:
+          try:
+            self.playfield.put('#', i, [answers[i][1], answers[i][2]])
+            self.strats[i].stones -= 1
+          except Exception:
+            print "ERROR: failed to put %s on %s by %s" % (answers[i][0], [answers[i][1], answers[i][2]], i)
+        else:
+          print "ERROR: failed to put %s on %s by %s because we are out of limit for stones" % (answers[i][0], [answers[i][1], answers[i][2]], i)
     # Build paths on the map if some strategy wants to
     random.shuffle(strat_ids)   # without shuffle, last strategy would have
                                 # advantage, because it would be building
                                 # path on the map with more paths than the
                                 # first one
     for i in strat_ids:
-      if answers[i][0] in PATHS:
+      if len(answers[i]) != 0 and answers[i][0] in PATHS:
         try:
           self.playfield.put(answers[i][0], i, [answers[i][1], answers[i][2]])
         except Exception:
@@ -167,10 +177,9 @@ class Game():
     # Count potions completed by each strategy in this round
     can_uses = self._get_can_use()
     for i in strat_ids:
-      self.strats[i].brew(self.playfield, can_uses)
+      self.strats[i].brew(self.playfield, can_uses[i])
     # Increase rounds counter because this round is over
     self.round += 1
     # Dump the map
-    print self.playfield
-    for s in self.strats:
-      print s
+    self.playfield.dump_globaly("playfield-%s.txt"%self.round, self.round, self.strats, self.cookbook)
+    print "===== end ====="
