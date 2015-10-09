@@ -53,7 +53,8 @@ def test_strat_want_to_use():
 def test_strat_execute():
   strat = Strat('examples/prvni.sh', 0, '0,5,ABC,0')
   plan = Plan(plan_list)
-  assert strat.execute(0, plan) == ['|', 1, 3]
+  plan.dump_for_strat(0, strat)
+  assert strat.execute() == ['|', 1, 3]
 
 def test_plan_init():
   plan = Plan(plan_list)

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import os.path
+
 PATHS = ['|', '/', '-', '\\']
 
 def is_edge(coords):
@@ -302,8 +304,8 @@ class Plan():
     self[coord[0]][coord[1]] = {what: who}
 
   def dump_for_strat(self, round, who):
-    """Dump map customized for given strategy as 'playfield.txt' to current directory"""
-    fp = open('playfield.txt', 'w')
+    """Dump map customized for given strategy as 'playfield.txt' to where directory"""
+    fp = open(os.path.join(who.stratwd, 'playfield.txt'), 'w')
     fp.write("Kolo: %s\n" % round)
     fp.write("Bodu: %s\n" % who.points)
     fp.write("Kamenu: %s\n" % who.stones)
