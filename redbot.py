@@ -334,7 +334,7 @@ def test_game_get_can_use():
 
 def test_game_round():
   game = Game('plan.dat', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
-  game.round()
+  assert game._get_round() == 123
 
 def main():
   game = Game('playfields/basic.txt', sys.argv[1:])
