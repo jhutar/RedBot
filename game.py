@@ -18,7 +18,7 @@ class Game():
     self.playfield = self._get_plan()
     self.strats = []
     self.cookbook = self._get_cookbook()
-    for i in range(4):
+    for i in range(len(self.executables)):
       strategy = self._get_strat(self.executables[i], i)
       strategy.cookbook = self.cookbook
       self.strats.append(strategy)
@@ -82,7 +82,7 @@ class Game():
       seen = []   # store already processed coords here to lower count
                   # of required iterations
       conflicts = {'coords': [], 'strats': []}
-      for s in range(4):   # for all strategies
+      for s in range(len(self.executables)):   # for all strategies
         # Now check all the involved coords that they are not requested
         # by other strategy
         if i in want_to_use[s]:
@@ -93,7 +93,7 @@ class Game():
               # Go through rest of strategies to find conflicts and store them
               # in 'conflicts' structure
               problematic = False
-              for ss in range(4):
+              for ss in range(len(self.executables)):
                 if ss == s:
                   continue
                 # Now finally detect conflicts of interests
