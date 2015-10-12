@@ -331,7 +331,7 @@ def test_game_get_can_use():
 
 def test_game_round():
   game = Game('tests/plan.txt', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
-  game.round()
+  assert 123 == game._get_round()
 
 if __name__ == '__main__':
   test_strat_init()
