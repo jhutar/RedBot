@@ -60,7 +60,11 @@ class Strat():
     # Execute the strategy
     ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
     # FIXME: Add some ulimit, runuser and so on
-    out = subprocess.check_output(['./'+self.stratbin, str(self.id)])
+    t_limit = 120 # seconds of cpu time
+    m_limit = 2**18 # kbytes
+    ulimit_settings = "ulimit -t %d -m %d -v %d -d %d ;" % (t_limit, m_limit, m_limit, m_limit)
+    ###print ">>> ulimit settings: ", ulimit_settings
+    out = subprocess.check_output([ulimit_settings + './' + self.stratbin + " "+ str(self.id)], shell=True)
     ###print ">>> execute: Returned:", out
     # Change directory back where RedBot lives
     os.chdir(wd)
