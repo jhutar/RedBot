@@ -51,11 +51,6 @@ class Strat():
        user, under some ulimit settings (both not by default) and
        with timeout of, say, 3 seconds. Return STDOUT, log STDERR.
        """
-    # Change directory to where strategy lives
-    wd = os.getcwd()
-    ###print ">>> execute: RedBot WD is", wd
-    os.chdir(self.stratwd)
-    ###print ">>> execute: Strategy WD is", self.stratwd
     # We do expect playfield.txt file for this strategy exists
     # Execute the strategy
     ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
@@ -68,10 +63,8 @@ class Strat():
     stderr_log = "2>%s_round_%d_stderr.txt" % (self.stratbin, current_round)
     command_str = "%s; ./%s %d %s" % (ulimit_settings, self.stratbin, self.id, stderr_log)
     # shell execute 
-    out = subprocess.check_output([command_str], shell=True)
+    out = subprocess.check_output([command_str], shell=True, cwd=self.stratwd)
     ###print ">>> execute: Returned:", out
-    # Change directory back where RedBot lives
-    os.chdir(wd)
     out_split = out.split(' ')
     if len(out_split) != 3:
       return []
