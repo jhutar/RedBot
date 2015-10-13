@@ -54,7 +54,9 @@ class Strat():
     # We do expect playfield.txt file for this strategy exists
     # Execute the strategy
     ###print ">>> execute: Going to run './%s %s'" % (self.stratbin, str(self.id))
-    # FIXME: Add some ulimit, runuser and so on
+    def runuser(uid=os.getuid(), gid=os.getgid()):
+      return lambda : (os.setgid(gid), os.setuid(uid)) # group id has to be set as the first
+
     t_limit = 120 # seconds of cpu time
     m_limit = 2**18 # kbytes
     ulimit_settings = "ulimit -t %d -m %d -v %d -d %d" % (t_limit, m_limit, m_limit, m_limit)
@@ -63,7 +65,7 @@ class Strat():
     stderr_log = "2>%s_round_%d_stderr.txt" % (self.stratbin, current_round)
     command_str = "%s; ./%s %d %s" % (ulimit_settings, self.stratbin, self.id, stderr_log)
     # shell execute 
-    out = subprocess.check_output([command_str], shell=True, cwd=self.stratwd)
+    out = subprocess.check_output([command_str], shell=True, cwd=self.stratwd, preexec_fn=runuser(1000, 1000))
     ###print ">>> execute: Returned:", out
     out_split = out.split(' ')
     if len(out_split) != 3:
