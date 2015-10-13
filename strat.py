@@ -43,7 +43,7 @@ class Strat():
       ###print ">>> get_cookbook: [%s] potion done? %s, returning %s" % (self.id, self.potion_done, [self.potion])
       return [self.potion]
 
-  def execute(self):
+  def execute(self, current_round=0):
     """Execute the strategy (in self.strat) in its directory with
        <strategy_id> option. Threre will be file playfield.txt with
        all the required data in CWD of the strategy.
@@ -64,7 +64,10 @@ class Strat():
     m_limit = 2**18 # kbytes
     ulimit_settings = "ulimit -t %d -m %d -v %d -d %d ;" % (t_limit, m_limit, m_limit, m_limit)
     ###print ">>> ulimit settings: ", ulimit_settings
-    out = subprocess.check_output([ulimit_settings + './' + self.stratbin + " "+ str(self.id)], shell=True)
+    # log STDERR
+    stderr_log = "2>%s_round_%d_stderr.txt" % (self.stratbin, current_round)
+    # shell execute 
+    out = subprocess.check_output([ulimit_settings + './' + self.stratbin + " "+ str(self.id) + " " + stderr_log], shell=True)
     ###print ">>> execute: Returned:", out
     # Change directory back where RedBot lives
     os.chdir(wd)

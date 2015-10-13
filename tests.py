@@ -53,6 +53,12 @@ def test_strat_execute():
   plan.dump_for_strat(0, strat)
   assert strat.execute() == ['|', 1, 3]
 
+def test_strat_stderr(current_round=900):
+  strat = Strat('examples/failing.sh', 0, '0,0,BUG,0')
+  strat.execute(current_round)
+  fp = open('examples/failing.sh_round_'+str(current_round)+'_stderr.txt')
+  assert next(fp) == "Failing strategy\n"
+
 def test_plan_init():
   plan = Plan(plan_list)
   assert plan[0][0] == {'C': 3, 'D': 3}
@@ -337,6 +343,7 @@ if __name__ == '__main__':
   test_strat_init()
   test_strat_want_to_use()
   test_strat_execute()
+  test_strat_stderr()
   test_plan_init()
   test_plan_dump_globaly()
   test_plan_paths_and_stones()

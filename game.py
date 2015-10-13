@@ -138,7 +138,7 @@ class Game():
     out = []
     for s in self.strats:
       self.playfield.dump_for_strat(self.round, s)
-      out.append(s.execute())
+      out.append(s.execute(self.round))
     print ">>> _get_answers:", out
     return out
 
