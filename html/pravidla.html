@@ -1,0 +1,31 @@
+<h1>Pravidla</h1>
+
+<p>Čtyři lesní skřítkové dostali od svého krále za úkol namíchat lektvar, každý z jiných ingrediencí. Skřítkové staví napříč lesem cestičky propojující požadované suroviny, vyhrává ten skřítek, který získá více bodů (uvaří nejvíce lektvarů).</p>
+
+<ul>
+	<li>Hraje se kolově, počet kol je omezen</li>
+	<li>Na jednom plánu hrají čtyři soupeři</li>
+	<li>Hrací pole je čtvercová síť, jednotlivá políčka mají souřadnice od <code>[0,0]</code> (levý dolní roh), osa <strong>x</strong> je levo-pravá, osa <strong>y</strong> je z dolů-nahoru</li>
+	<li>Na hracím poli jsou rozmístěny ingredience na lektvary, na jednom políčku může být více různých surovin a každá surovina může být vícekrát</li>
+	<li>Každý skřítek musí nejprve sestavit jeden konkrétní lektvar a teprve potom může začít vařit lektvary z kuchařky společné všem skřítkům</li>
+	<li>Propojením surovin daných receptem dojde k namíchání lektvaru a použité suroviny jsou z herního plánu odstraněny</li>
+	<li>První cestička může být postavena na jakémkoliv volném políčku, další musí navazovat na předchozí postavené. Je přípustné napojit svoji soustavu cest na cestičky protivníka</li>
+	<li>Cestičky mohou vést horizontálně, vertikálně i šikmo</li>
+	<li>Za namíchaný lektvar uvedený v kuchařce získá hráč bod</li>
+	<li>Každý hráč může během hry položit 5 kamenů které znemožňují stavbu cestičky (nebo existuje-li již na daném poli cesta, znemožní po ní transport surovin) a nemohou být odstraněny</li>
+	<li>Kámen může být položen na cestičku nebo volné políčko</li>
+	<li>V každém kole se provedou akce v tomto pořadí:
+		<ul>
+			<li>Položení kamenů</li>
+			<li>Vybudování cestiček</li>
+			<li>Kontrola propojených surovin a uvaření lektvarů
+				<ul>
+					<li>V případě že o surovinu soupeří více hráčů, je náhodně vybrán hráč, který ji získá</li>
+				</ul>
+			</li>
+			<li>Odstranění použitých surovin z mapy</li>
+		</ul>
+	</li>
+	<li>Hraje se na daný počet kol (1000) a dokud jsou na mapě suroviny</li>
+	<li>Vyhrává hráč který má na konci více bodů za uvařené lektvary</li>
+</ul>
