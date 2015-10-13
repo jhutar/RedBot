@@ -62,12 +62,13 @@ class Strat():
     # FIXME: Add some ulimit, runuser and so on
     t_limit = 120 # seconds of cpu time
     m_limit = 2**18 # kbytes
-    ulimit_settings = "ulimit -t %d -m %d -v %d -d %d ;" % (t_limit, m_limit, m_limit, m_limit)
+    ulimit_settings = "ulimit -t %d -m %d -v %d -d %d" % (t_limit, m_limit, m_limit, m_limit)
     ###print ">>> ulimit settings: ", ulimit_settings
     # log STDERR
     stderr_log = "2>%s_round_%d_stderr.txt" % (self.stratbin, current_round)
+    command_str = "%s; ./%s %d %s" % (ulimit_settings, self.stratbin, self.id, stderr_log)
     # shell execute 
-    out = subprocess.check_output([ulimit_settings + './' + self.stratbin + " "+ str(self.id) + " " + stderr_log], shell=True)
+    out = subprocess.check_output([command_str], shell=True)
     ###print ">>> execute: Returned:", out
     # Change directory back where RedBot lives
     os.chdir(wd)
