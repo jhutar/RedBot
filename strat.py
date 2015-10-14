@@ -117,9 +117,14 @@ class Strat():
       ###print ">>> brew: Going to brew %s of %s potion from %s" % (count, potion, ingredient_use)
       # Decrease ingredient counts on the map
       for ingredient, coords in ingredient_use.iteritems():
-        # FIXME: we should only remove 'count' of ingredients
+        to_remove = count
         for (coord, ingredient_cnt) in coords:
-          plan.use_ingredient(ingredient, coord, count)
+          if to_remove == 0:
+            break
+          remove_at = min(to_remove, ingredient_cnt)
+          plan.use_ingredient(ingredient, coord, remove_at)
+          to_remove = to_remove - remove_at
+
       # Add points for brewed potion
       self.points += count
       # FIXME: This all above should be per strat and per its connected path!
