@@ -4,6 +4,7 @@
 import os
 import os.path
 import subprocess
+import random
 
 from plan import PATHS
 
@@ -118,6 +119,7 @@ class Strat():
       # Decrease ingredient counts on the map
       for ingredient, coords in ingredient_use.iteritems():
         to_remove = count
+        random.shuffle(coords) # FIXME: Should we remove all ingredients from the coord, or use some distribution?
         for (coord, ingredient_cnt) in coords:
           if to_remove == 0:
             break
