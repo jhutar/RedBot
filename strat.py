@@ -111,15 +111,14 @@ class Strat():
                 for ingredient in potion:
                   if ingredient in plan[coord[0]][coord[1]]:
                     ###print ">>> brew: There is %s on %s. Taking it." % (ingredient, coord)
-                    ingredient_use[ingredient].append(coord)
+                    ingredient_use[ingredient].append((coord, plan[coord[0]][coord[1]][ingredient]))
       # Count potions we will create
-      # FIXME: This do not take count of given ingredient on a given coords into advice
-      count = reduce(min, map(len, ingredient_use.values()))
+      count = reduce(min, map(lambda lst: sum(map(lambda (_, cnt): cnt, lst)), ingredient_use.values()))
       ###print ">>> brew: Going to brew %s of %s potion from %s" % (count, potion, ingredient_use)
       # Decrease ingredient counts on the map
       for ingredient, coords in ingredient_use.iteritems():
         # FIXME: we should only remove 'count' of ingredients
-        for coord in coords:
+        for (coord, ingredient_cnt) in coords:
           plan.use_ingredient(ingredient, coord, count)
       # Add points for brewed potion
       self.points += count
