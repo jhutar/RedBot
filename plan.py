@@ -146,7 +146,7 @@ class Plan():
         for item in self.get_connecting_edges(coords):
           # If we have not seen that edge, discover vertexes connected to it
           # and add it to output set
-          if item not in cells:
+          if item not in cells and "#" not in self[item[0]][item[1]]:
             ###print ">>> get_connected_cells: get_connecting_edges returned new edge %s, investigating" % item
             cells = self.get_connected_cells(item, cells)
     ###print ">>> get_connected_cells: Returning %s" % cells
@@ -243,7 +243,9 @@ class Plan():
        multiple lists, because one path can be divided by stone."""
     paths = []
     # For every path/edge coords built by given strategy
-    for coords in self.list_paths_for_strat(strat):
+    # if there is no stone on it
+    list_paths_for_strat = filter(lambda crd: "#" not in self[crd[0]][crd[1]], self.list_paths_for_strat(strat))
+    for coords in list_paths_for_strat:
       ###print ">>> get_paths_for_strat: Considering %s for %s" % (coords, strat)
       processed = False
       # If we already have these coords in some path for this strategy
