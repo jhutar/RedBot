@@ -154,6 +154,10 @@ def test_plan_same_all_the_time():
   assert plan1 == plan2
 
 def test_plan_paths_for_strat():
+  def sorted_list_of_lists(lst):
+    for l in lst:
+      l.sort
+    return sorted(lst)
   plan = Plan(plan_list)
   # Test "list_paths_for_strat"
   expected = [
@@ -206,10 +210,8 @@ def test_plan_paths_for_strat():
     [8,2],
     [8,8]
   ])
-  expected[0].sort()
   returned = plan.get_paths_for_strat(0)
-  returned[0].sort()
-  assert expected == returned
+  assert sorted_list_of_lists(expected) == sorted_list_of_lists(returned)
   # Test "get_paths_for_strat" with stone
   expected = []
   expected.append([
@@ -222,10 +224,8 @@ def test_plan_paths_for_strat():
     [3,4],
     [4,4],
   ])
-  expected[0].sort()
   returned = plan.get_paths_for_strat(2)
-  returned[0].sort()
-  assert expected == returned
+  assert sorted_list_of_lists(expected) == sorted_list_of_lists(returned)
   expected = []
   expected.append([
     [0,2],
@@ -237,17 +237,11 @@ def test_plan_paths_for_strat():
     [1,0],
     [2,0]
   ])
-  for lst in expected:
-    lst.sort()
-  expected.sort()
   plan = Plan([',-:0,',
                ',\\:0;#:0,',
                ',-:0,',])
   returned = plan.get_paths_for_strat(0)
-  for lst in returned:
-    lst.sort()
-  returned.sort()
-  assert expected == returned
+  assert sorted_list_of_lists(expected) == sorted_list_of_lists(returned)
 
 
 def test_plan_put():
