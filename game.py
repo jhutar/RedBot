@@ -4,6 +4,7 @@
 from plan import Plan, PATHS
 from strat import Strat
 import random
+import os.path
 
 class Game():
   """Object to hold data (game plan, strategies) about game"""
@@ -11,6 +12,7 @@ class Game():
   def __init__(self, dat_file, executables):
     ###print ">>> __init__: dat_file:", dat_file
     ###print ">>> __init__: executables:", executables
+    assert os.path.isfile(dat_file)
     self.dat_file = dat_file
     self.dat = []
     self.executables = executables
