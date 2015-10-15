@@ -62,6 +62,7 @@ class Plan():
     self.columns_count = self.dat[0].count(',') + 1
     self.rows_count = len(self.dat)
     self.plan = []
+    assert self.columns_count == self.rows_count
     for line in self.dat[::-1]:
       # Line looks like: "A:3;B:3,,A:1,-:1,,,H:1,-:2,G:3;H:3"
       assert self.columns_count == line.count(',') + 1
