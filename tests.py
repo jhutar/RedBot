@@ -226,6 +226,29 @@ def test_plan_paths_for_strat():
   returned = plan.get_paths_for_strat(2)
   returned[0].sort()
   assert expected == returned
+  expected = []
+  expected.append([
+    [0,2],
+    [1,2],
+    [2,2]
+  ])
+  expected.append([
+    [0,0],
+    [1,0],
+    [2,0]
+  ])
+  for lst in expected:
+    lst.sort()
+  expected.sort()
+  plan = Plan([',-:0,',
+               ',\\:0;#:0,',
+               ',-:0,',])
+  returned = plan.get_paths_for_strat(0)
+  for lst in returned:
+    lst.sort()
+  returned.sort()
+  assert expected == returned
+
 
 def test_plan_put():
   plan = Plan(plan_list)
