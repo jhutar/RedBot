@@ -11,3 +11,13 @@
 *.lai
 *.la
 *.a
+
+# Python
+*.pyc
+
+# Vim
+*.swp
+
+# RedBot2015Autumn
+playfield-*.txt
+examples/*.txt
