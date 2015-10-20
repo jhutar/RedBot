@@ -9,7 +9,9 @@ from game import Game
 
 def main():
   game = Game('playfields/basic.txt', sys.argv[1:])
-  for r in range(7):
+  rounds = 2 * game.playfield.columns_count \
+           + 2 * game.playfield.rows_count
+  for r in range(rounds):
     game.play_round()
 
 if __name__ == '__main__':
