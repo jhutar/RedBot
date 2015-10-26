@@ -183,5 +183,5 @@ class Game():
     # Increase rounds counter because this round is over
     self.round += 1
     # Dump the map
-    self.playfield.dump_globaly("playfield-%s.txt"%self.round, self.round, self.strats, self.cookbook)
+    self.playfield.dump_globaly("playfield-%.4d.txt"%self.round, self.round, self.strats, self.cookbook)
     print "===== end ====="
