@@ -15,7 +15,7 @@ class RedBotPlayer(Gtk.Grid):
 
   def __init__(self, file):
     super(RedBotPlayer, self).__init__()
-    dwarf = GdkPixbuf.Pixbuf.new_from_file_at_scale(file, 50, 70, True)
+    dwarf = GdkPixbuf.Pixbuf.new_from_file_at_scale("sprites/dwarf_%s.svg" % file, 50, 70, True)
     potion = GdkPixbuf.Pixbuf.new_from_file_at_scale("sprites/potion.svg", 30, 30, True)
     stone = GdkPixbuf.Pixbuf.new_from_file_at_scale("sprites/stone.svg", 30, 30, True)
     self.potion_count = Gtk.Label()
@@ -28,26 +28,52 @@ class RedBotPlayer(Gtk.Grid):
 
 class RedBotPlayfield(Gtk.Grid):
 
-  def __init__(self):
+  def __init__(self, colors):
     super(RedBotPlayfield, self).__init__()
+    self.colors = [Gdk.color_parse(c) for c in colors]
+    self.colors.append(Gdk.color_parse("black"))
+    self.set_row_homogeneous(True)
+    self.set_column_homogeneous(True)
+    self.modify_bg(Gtk.StateType.NORMAL, self.colors[-1])
 
   def setup(self, plan):
-    # FIXME: Parse game plan
-    size = len(plan)
-    for x in range(size):
-      for y in range(size):
+    def label(c, i):
+      label = Gtk.Label(c)
+      label.modify_fg(Gtk.StateType.NORMAL, self.colors[i])
+      return label
+    def parse_field(field):
+      PATHS = ['|', '/', '-', '\\', '#']
+      grid = Gtk.Grid()
+      grid.modify_bg(Gtk.StateType.NORMAL, Gdk.color_parse("white"))
+      grid.set_border_width(1)
+      i = 0
+      for k, v in field.iteritems():
+        if k in PATHS:
+          grid.attach(label(k, int(v)), 0, i, 1, 1)
+        else:
+          grid.attach(label("%s : %s" %(k, v), -1),  0, i, 1, 1)
+        i = i + 1
+      return grid
+    for x in range(plan.columns_count):
+      for y in range(plan.rows_count):
         # TODO: use some graphic for fields
-        self.attach(Gtk.Button(), x, y, 1, 1)
+        element = self.get_child_at(x, plan.rows_count - y -1)
+        if element != None:
+          element.destroy()
+        self.attach(parse_field(plan[x][y]), x, plan.rows_count - y -1, 1, 1)
+    self.show_all()
 
 # TODO: Create video from screenshots - see https://trac.ffmpeg.org/wiki/Create%20a%20video%20slideshow%20from%20images
-class RedBotVizualizer(Gtk.Window):
+class RedBotVisualizer(Gtk.Window):
 
   def __init__(self, directory):
     Gtk.Window.__init__(self, title="Red Bot 2015")
 
-    self.players = []
+    dwarfs = ["blue", "green", "red", "violet"]
     grid = Gtk.Grid()
-    self.playfield = RedBotPlayfield()
+
+    self.players = []
+    self.playfield = RedBotPlayfield(dwarfs)
     self.current_round = 0
     self.round_label = Gtk.Label("round: " + str(self.current_round))
     self.next_round_button = Gtk.Button(label="Next Round")
@@ -56,7 +82,6 @@ class RedBotVizualizer(Gtk.Window):
     grid.attach(self.next_round_button, 0, 0, 1, 1)
     grid.attach(self.playfield, 0, 1, 1, 4)
     grid.attach(self.round_label, 1, 0, 1, 1)
-    dwarfs = ["sprites/dwarf_blue.svg", "sprites/dwarf_green.svg", "sprites/dwarf_red.svg", "sprites/dwarf_violet.svg"]
     for i in range(len(dwarfs)):
       self.players.append(RedBotPlayer(dwarfs[i]))
       grid.attach(self.players[i], 1, i + 1, 1, 1)
@@ -84,7 +109,7 @@ class RedBotVizualizer(Gtk.Window):
     g = Game(self.files.pop(), [])
     self.current_round = g._get_round()
     self.round_label.set_text("round: " + str(self.current_round))
-    self.playfield.setup(g._get_plan_data())
+    self.playfield.setup(g._get_plan())
     for i in range(4):
       potions, stones, _, _ = g._get_strat_data(i).split(",")
       self.players[i].potion_count.set_text(potions)
@@ -98,8 +123,8 @@ class RedBotVizualizer(Gtk.Window):
     else:
       Gtk.main_quit()
 
-
+# todo add help
 if __name__ == '__main__':
   directory = sys.argv[1] if len(sys.argv) > 1 else "./"
-  win = RedBotVizualizer(directory)
+  win = RedBotVisualizer(directory)
   Gtk.main()
