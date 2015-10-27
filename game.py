@@ -38,22 +38,29 @@ class Game():
     assert self.dat[0].startswith("Kolo: ")
     return int(self.dat[0][6:])
 
-  def _get_plan(self):
-    """Parse plan file and return Plan object instance"""
+  def _get_plan_data(self):
     self._ensure_dat()
     assert "Mapa:" in self.dat
     assert len(self.dat) > self.dat.index("Mapa:") + 1
+    return self.dat[self.dat.index("Mapa:") + 1:]
+
+  def _get_plan(self):
+    """Parse plan file and return Plan object instance"""
     ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
-    return Plan(self.dat[self.dat.index("Mapa:") + 1:])
+    return Plan(self._get_plan_data())
+
+  def _get_strat_data(self, strat_id):
+    assert type(strat_id) is int
+    self._ensure_dat()
+    found_strats = filter(lambda l: l.startswith("Strategie%s: " % strat_id), self.dat)
+    assert len(found_strats) == 1
+    return found_strats[0].split(": ")[1]
 
   def _get_strat(self, strat_exe, strat_id):
     """Parse plan file and return Strat object instance"""
     assert type(strat_exe) is str
     assert type(strat_id) is int
-    self._ensure_dat()
-    found_strats = filter(lambda l: l.startswith("Strategie%s: " % strat_id), self.dat)
-    assert len(found_strats) == 1
-    strat_data = found_strats[0].split(": ")[1]
+    strat_data = self._get_strat_data(strat_id)
     return Strat(strat_exe, strat_id, strat_data)
 
   def _get_cookbook(self):
@@ -183,5 +190,5 @@ class Game():
     # Increase rounds counter because this round is over
     self.round += 1
     # Dump the map
-    self.playfield.dump_globaly("playfield-%s.txt"%self.round, self.round, self.strats, self.cookbook)
+    self.playfield.dump_globaly("playfield-%.4d.txt"%self.round, self.round, self.strats, self.cookbook)
     print "===== end ====="
