@@ -246,43 +246,32 @@ def test_plan_paths_for_strat():
 
 def test_plan_put():
   plan = Plan(plan_list)
+
+  def wrong_put(what, coords, who=0, plan=plan):
+    failed = False
+    try:
+      plan.put(what, who, coords)
+    except Exception:
+      failed = True
+    return failed
+
   # Test we can not put unexpected char
-  failed = False
-  try:
-    plan.put('+', 0, [0,0])
-  except AssertionError:
-    failed = True
-  assert failed
-  assert plan[0][0] == {'C': 3, 'D': 3}
+  assert wrong_put('+', [0,0])
   # Test we can put stone
+  assert plan[0][0] == {'C': 3, 'D': 3}
   plan.put('#', 0, [0,0])
   assert plan[0][0] == {'C': 3, 'D': 3, '#': 0}
   # Test we can build path on connected edge
   plan.put('-', 1, [3,8])
   assert plan[3][8] == {'-': 1}
   # Test we can not build path on not connected edge
-  failed = False
-  try:
-    plan.put('|', 0, [0,3])
-  except Exception:
-    failed = True
-  assert failed
+  assert wrong_put('|', [0,3])
   assert plan[0][3] == {}
   # Test we can not build path on foreignly connected edge
-  failed = False
-  try:
-    plan.put('/', 0, [3,1])
-  except Exception:
-    failed = True
-  assert failed
+  assert wrong_put('/', [3,1])
   assert plan[3][1] == {}
   # Test we can not build path on vertex
-  failed = False
-  try:
-    plan.put('/', 0, [6,6])
-  except Exception:
-    failed = True
-  assert failed
+  assert wrong_put('/', [6,6])
   assert plan[6][6] == {}
 
 def test_game_match_plans():
