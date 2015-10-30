@@ -12,6 +12,20 @@ def is_edge(coords):
 def is_vertex(coords):
   return coords[0] % 2 == 0 and coords[1] % 2 == 0
 
+def can_put(c, coords):
+  if c == '#':
+    return True
+  if c not in PATHS:
+    return False
+  if is_vertex(coords):
+    return False
+  if coords[0] % 2 == 1 and coords[1] % 2 == 0:
+    return c == '-'
+  if coords[0] % 2 == 1 and coords[1] % 2 == 1:
+    return c == '/' or c == '\\'
+  if coords[0] % 2 == 0 and coords[1] % 2 == 1:
+    return c == '|'
+
 class PlanColumn():
   """Helper object to implement Plan[x][y] type of access"""
   def __init__(self, playfield, x):
@@ -290,7 +304,7 @@ class Plan():
     # If we are building path, we have to check if that is connected to
     # this strategy's path already
     if what in PATHS:
-      assert is_edge(coord)
+      assert can_put(what, coord)
       paths = self.get_paths_for_strat(who)
       if len(paths) != 0:   # do not check neighbours if this is our first path
         ###print ">>> put: Found these path (co)owned by strategy %s: %s" % (who, paths)

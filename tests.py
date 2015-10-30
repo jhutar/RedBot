@@ -273,6 +273,14 @@ def test_plan_put():
   # Test we can not build path on vertex
   assert wrong_put('/', [6,6])
   assert plan[6][6] == {}
+  # Test putting edges on wrong coordinates
+  empty_plan = Plan([',,',
+                     ',,',
+                     ',,'])
+  assert wrong_put('-', [0,1], plan=empty_plan)
+  assert wrong_put('|', [1,0], plan=empty_plan)
+  assert wrong_put('\\', [0,1], plan=empty_plan)
+  assert wrong_put('/', [1,0], plan=empty_plan)
 
 def test_game_match_plans():
   game = Game('tests/plan.txt', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
