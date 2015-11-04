@@ -20,7 +20,7 @@ class Game():
     self.playfield = self._get_plan()
     self.strats = []
     self.cookbook = self._get_cookbook()
-    for i in range(len(self.executables)):
+    for i in range(min(len(self.executables), self._get_strat_cnt())):
       strategy = self._get_strat(self.executables[i], i)
       strategy.cookbook = self.cookbook
       self.strats.append(strategy)
@@ -48,6 +48,11 @@ class Game():
     """Parse plan file and return Plan object instance"""
     ###print ">>> mapa from plan.dat: ", self.dat[self.dat.index("Mapa:") + 1:]
     return Plan(self._get_plan_data())
+
+  def _get_strat_cnt(self):
+    self._ensure_dat()
+    found_strats = filter(lambda l: l.startswith("Strategie"), self.dat)
+    return len(found_strats)
 
   def _get_strat_data(self, strat_id):
     assert type(strat_id) is int

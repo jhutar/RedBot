@@ -82,13 +82,14 @@ class RedBotVisualizer(Gtk.Window):
     grid.attach(self.next_round_button, 0, 0, 1, 1)
     grid.attach(self.playfield, 0, 1, 1, 4)
     grid.attach(self.round_label, 1, 0, 1, 1)
-    for i in range(len(dwarfs)):
-      self.players.append(RedBotPlayer(dwarfs[i]))
-      grid.attach(self.players[i], 1, i + 1, 1, 1)
     self.add(grid)
     self.files = filter(lambda l: l.startswith("playfield-") and l.endswith(".txt"), os.listdir(directory))
     if self.files != []:
       self.files.sort(reverse=True)
+      g = Game(self.files[-1], [])
+      for i in range(g._get_strat_cnt()):
+        self.players.append(RedBotPlayer(dwarfs[i]))
+        grid.attach(self.players[i], 1, i + 1, 1, 1)
       self.next_round()
       self.show_all()
     else:
@@ -110,7 +111,7 @@ class RedBotVisualizer(Gtk.Window):
     self.current_round = g._get_round()
     self.round_label.set_text("round: " + str(self.current_round))
     self.playfield.setup(g._get_plan())
-    for i in range(4):
+    for i in range(g._get_strat_cnt()):
       potions, stones, _, _ = g._get_strat_data(i).split(",")
       self.players[i].potion_count.set_text(potions)
       self.players[i].stone_count.set_text(stones)
