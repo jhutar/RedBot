@@ -59,7 +59,7 @@ class Strat():
       return lambda : (os.setgid(gid), os.setuid(uid)) # group id has to be set as the first
 
     t_limit = 120 # seconds of cpu time
-    m_limit = 2**18 # kbytes
+    m_limit = 2**22 # kbytes
     ulimit_settings = "ulimit -t %d -m %d -v %d -d %d" % (t_limit, m_limit, m_limit, m_limit)
     ###print ">>> ulimit settings: ", ulimit_settings
     # log STDERR
