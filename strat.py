@@ -65,8 +65,12 @@ class Strat():
     # log STDERR
     stderr_log = "2>%s_round_%d_stderr.txt" % (self.stratbin, current_round)
     command_str = "%s; ./%s %d %s" % (ulimit_settings, self.stratbin, self.id, stderr_log)
-    # shell execute 
-    out = subprocess.check_output([command_str], shell=True, cwd=self.stratwd, preexec_fn=runuser(1000, 1000))
+    # shell execute
+    try:
+      out = subprocess.check_output([command_str], shell=True, cwd=self.stratwd, preexec_fn=runuser(1000, 1000))
+    except subprocess.CalledProcessError as command_exception:
+      #print ">>> strategy %s exit with code %d\toutput: %s" % (self.stratbin, command_exception.returncode, command_exception.output)
+      return []
     ###print ">>> execute: Returned:", out
     out_split = out.split(' ')
     if len(out_split) != 3:
