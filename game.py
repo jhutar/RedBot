@@ -136,6 +136,10 @@ class Game():
     ###print ">>> _get_can_use: Returning", can_use
     return can_use
 
+  def get_scores(self):
+    """Returns dict {id: score}"""
+    return {player.id : player.points for player in self.strats}
+
   def _brew_potions(self):
     """Brew potions:
         * check if usable ingredients are connected by our path
