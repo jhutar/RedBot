@@ -59,7 +59,7 @@ class Strat():
       return lambda : (os.setgid(gid), os.setuid(uid)) # group id has to be set as the first
 
     t_limit = 120 # seconds of cpu time
-    m_limit = 2**22 # kbytes
+    m_limit = 2**24 # kbytes
     ulimit_settings = "ulimit -t %d -m %d -v %d -d %d" % (t_limit, m_limit, m_limit, m_limit)
     ###print ">>> ulimit settings: ", ulimit_settings
     # log STDERR
@@ -101,10 +101,10 @@ class Strat():
         used[ingredient] = []
     # Go through all paths and potions and check which of them we can brew
     for potion in potions:
-      ###print ">>> brew: Checking potion", potion
+      ###print ">>> brew: Checking ingredient_use", potion
       ingredient_use = {}
       for ingredient in potion:
-        ingredient_use[ingredient] = []
+        ingredient_use[ingredient] = set()
       for path in paths:
         ###print ">>> brew: Checking that potion on path", path
         for ingredient in potion:
@@ -116,7 +116,7 @@ class Strat():
                 for ingredient in potion:
                   if ingredient in plan[coord[0]][coord[1]]:
                     ###print ">>> brew: There is %s on %s. Taking it." % (ingredient, coord)
-                    ingredient_use[ingredient].append((coord, plan[coord[0]][coord[1]][ingredient]))
+                    ingredient_use[ingredient].add((coord, plan[coord[0]][coord[1]][ingredient]))
       # Count potions we will create
       count = reduce(min, map(lambda lst: sum(map(lambda (_, cnt): cnt, lst)), ingredient_use.values()))
       ###print ">>> brew: Going to brew %s of %s potion from %s" % (count, potion, ingredient_use)

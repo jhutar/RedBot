@@ -348,6 +348,27 @@ def test_game_get_can_use():
   assert plan[2][2] == {'A': 1}   # this is not touched
   assert plan[6][6] == {}   # this is decreased to noothing on the cell
   assert strat.potion_done == True   # we were brewing our main potion
+  # test for failed brew
+  game = Game('playfields/basic.txt', ['examples/prvni.sh'])
+  strat = Strat('examples/prvni.sh', 0, '6,5,AEH,1')
+  plan_list = [
+    'A:1;B:2,-:0,,-:0,,-:0,,-:0,H:2',
+    ',,|:0,,|:0,,,\:0,',
+    'B:1,,,,,,,,',
+    ',,|:0,,|:0,,,,',
+    ',,,-:0,,,,,',
+    ',/:0,|:0,,|:0,\:0,,,',
+    ',,,,,,,,F:1',
+    ',/:0,,,,\:0,,\:0,',
+    'C:3;D:3,,D:1,,,,,,',
+  ]
+  plan = Plan(plan_list)
+  game.playfield = plan
+  strat.cookbook = ["ABC", "CDE", "EFG", "GHA"]
+  game.cookbook = ["ABC", "CDE", "EFG", "GHA"]
+  game.strats = [strat]
+  canuse = game._get_can_use()
+  strat.brew(plan, canuse[0])
 
 def test_game_round():
   game = Game('tests/plan.txt', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
