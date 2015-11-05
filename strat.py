@@ -121,7 +121,8 @@ class Strat():
       count = reduce(min, map(lambda lst: sum(map(lambda (_, cnt): cnt, lst)), ingredient_use.values()))
       ###print ">>> brew: Going to brew %s of %s potion from %s" % (count, potion, ingredient_use)
       # Decrease ingredient counts on the map
-      for ingredient, coords in ingredient_use.iteritems():
+      for ingredient, crds in ingredient_use.iteritems():
+        coords = list(crds)
         to_remove = count
         random.shuffle(coords) # FIXME: Should we remove all ingredients from the coord, or use some distribution?
         for (coord, ingredient_cnt) in coords:
