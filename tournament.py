@@ -8,7 +8,7 @@ from redbot import RedBot
 
 PLAYFIELDS = ['playfields/basic.txt']
 MAX_PLAYERS_IN_TOURNAMENT = 4
-REPEAT = 10
+REPEAT = 2
 
 class Tournament():
   def __init__(self, playfields, players, repeat=REPEAT):
@@ -26,7 +26,7 @@ class Tournament():
         self.playfied_scores[playfield][player] = 0
 
   def run(self):
-    groups = itertools.combinations(self.players, self.players_in_tournament)
+    groups = itertools.permutations(self.players, self.players_in_tournament)
     for group in groups:
       for i in range(self.repeat):
         for playfield in self.playfields:
