@@ -53,6 +53,7 @@ def main():
     print("Winner of the tournament is %s" % winners[0])
   else:
     print("Winners of the tournament are " +  ", ".join(winners))
+  print tournament.playfied_scores
 
 if __name__ == '__main__':
   main()
