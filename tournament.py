@@ -35,6 +35,7 @@ class Tournament():
           # TODO: store results, make video of images
           for winner in redbot_game.get_winners():
             self.playfied_scores[playfield][winner] += 1
+            self.total_scores[winner] += 1
 
   def get_winners_of_playfield(self, playfield):
     maxpoints = max(self.playfied_scores[playfield].values())
