@@ -173,17 +173,17 @@ class Plan():
     candidates = []
     ###print ">>> __get_continuing_cells: Considering %s on %s" % (what, coords)
     if what == '|':
-      candidates = self.__add_if_valid([coords[0], coords[1]-1], candidates)
-      candidates = self.__add_if_valid([coords[0], coords[1]+1], candidates)
+      candidates = self.__add_if_valid((coords[0], coords[1]-1), candidates)
+      candidates = self.__add_if_valid((coords[0], coords[1]+1), candidates)
     if what == '/':
-      candidates = self.__add_if_valid([coords[0]+1, coords[1]+1], candidates)
-      candidates = self.__add_if_valid([coords[0]-1, coords[1]-1], candidates)
+      candidates = self.__add_if_valid((coords[0]+1, coords[1]+1), candidates)
+      candidates = self.__add_if_valid((coords[0]-1, coords[1]-1), candidates)
     if what == '-':
-      candidates = self.__add_if_valid([coords[0]-1, coords[1]], candidates)
-      candidates = self.__add_if_valid([coords[0]+1, coords[1]], candidates)
+      candidates = self.__add_if_valid((coords[0]-1, coords[1]), candidates)
+      candidates = self.__add_if_valid((coords[0]+1, coords[1]), candidates)
     if what == '\\':
-      candidates = self.__add_if_valid([coords[0]-1, coords[1]+1], candidates)
-      candidates = self.__add_if_valid([coords[0]+1, coords[1]-1], candidates)
+      candidates = self.__add_if_valid((coords[0]-1, coords[1]+1), candidates)
+      candidates = self.__add_if_valid((coords[0]+1, coords[1]-1), candidates)
     ###print ">>> __get_continuing_cells: Returning:", candidates
     return candidates
 
@@ -216,28 +216,28 @@ class Plan():
         y = coords[1] + y_mod
         if x_mod == 0 and y_mod == 1:   # up
           if '|' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == 1 and y_mod == 1:   # up right
           if '/' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == 1 and y_mod == 0:   # right
           if '-' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == 1 and y_mod == -1:   # down right
           if '\\' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == 0 and y_mod == -1:   # down
           if '|' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == -1 and y_mod == -1:   # down left
           if '/' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == -1 and y_mod == 0:   # left
           if '-' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
         if x_mod == -1 and y_mod == 1:   # up left
           if '\\' in self[x][y]:
-            out.append([x, y])
+            out.append((x, y))
     ###print ">>> get_connecting_edges: Found connected edges on these coords %s" % out
     return out
 
@@ -248,7 +248,7 @@ class Plan():
       for y in range(self.rows_count):
         for k, v in self[x][y].items():
           if k in PATHS and v == strat:
-            paths.append([x, y])
+            paths.append((x, y))
     ###print ">>> list_paths_for_strat: Paths created by strategy %s: %s" % (strat, paths)
     return paths
 

@@ -40,9 +40,9 @@ def test_strat_want_to_use():
   strat = Strat('examples/prvni.sh', 0, '0,5,HFG,0')
   strat.cookbook = []
   expected = {
-    'H': [[6, 8], [8, 8]],
-    'F': [[8, 2]],
-    'G': [[8, 8]]
+    'H': [(6, 8), (8, 8)],
+    'F': [(8, 2)],
+    'G': [(8, 8)]
   }
   returned = strat.want_to_use(plan)
   assert returned == expected
@@ -161,81 +161,81 @@ def test_plan_paths_for_strat():
   plan = Plan(plan_list)
   # Test "list_paths_for_strat"
   expected = [
-    [7,3],
-    [6,5],
-    [1,6],
-    [3,6],
-    [5,6],
-    [6,7],
-    [7,8],
+    (7,3),
+    (6,5),
+    (1,6),
+    (3,6),
+    (5,6),
+    (6,7),
+    (7,8),
   ]
   expected.sort()
   returned = plan.list_paths_for_strat(0)
   returned.sort()
   assert expected == returned
   # Test "get_connected_cells"
-  expected = [[0,0], [1,0], [2,0], [1,1], [0,2]]
+  expected = [(0,0), (1,0), (2,0), (1,1), (0,2)]
   expected.sort()
-  returned = plan.get_connected_cells([1,0], [])
+  returned = plan.get_connected_cells((1,0), [])
   returned.sort()
   assert expected == returned
   # Test "get_continuing_cells"
-  expected = [[1,1]]
+  expected = [(1,1)]
   expected.sort()
-  returned = plan.get_connecting_edges([0,2])
+  returned = plan.get_connecting_edges((0,2))
   returned.sort()
   assert expected == returned
   # Test "get_continuing_cells"
-  expected = [[0,0], [1,1], [2,0]]
+  expected = [(0,0), (1,1), (2,0)]
   expected.sort()
-  returned = plan.get_continuing_cells([1,0])
+  returned = plan.get_continuing_cells((1,0))
   returned.sort()
   assert expected == returned
   # Test "get_paths_for_strat"
   expected = []
   expected.append([
-    [0,6],
-    [1,6],
-    [2,6],
-    [3,6],
-    [4,6],
-    [5,6],
-    [6,4],
-    [6,5],
-    [6,6],
-    [6,7],
-    [6,8],
-    [7,3],
-    [7,8],
-    [8,2],
-    [8,8]
+    (0,6),
+    (1,6),
+    (2,6),
+    (3,6),
+    (4,6),
+    (5,6),
+    (6,4),
+    (6,5),
+    (6,6),
+    (6,7),
+    (6,8),
+    (7,3),
+    (7,8),
+    (8,2),
+    (8,8)
   ])
   returned = plan.get_paths_for_strat(0)
   assert sorted_list_of_lists(expected) == sorted_list_of_lists(returned)
   # Test "get_paths_for_strat" with stone
   expected = []
   expected.append([
-    [0,4],
-    [1,4],
-    [2,4],
+    (0,4),
+    (1,4),
+    (2,4),
   ])
   expected.append([
-    [2,4],
-    [3,4],
-    [4,4],
+    (2,4),
+    (3,4),
+    (4,4),
   ])
   returned = plan.get_paths_for_strat(2)
   assert sorted_list_of_lists(expected) == sorted_list_of_lists(returned)
   expected = []
   expected.append([
-    [0,2],
-    [1,2],
-    [2,2]
+    (0,2),
+    (1,2),
+    (2,2)
   ])
   expected.append([
-    [0,0],
-    [1,0],
-    [2,0]
+    (0,0),
+    (1,0),
+    (2,0)
   ])
   plan = Plan([',-:0,',
                ',\\:0;#:0,',
@@ -304,24 +304,24 @@ def test_game_init():
   assert game.strats[1].potion == ['C','G','B']
   assert game.strats[2].potion == ['E','A','D']
   assert game.strats[3].potion == ['G','C','F']
-  assert game._get_want_to_use() == [{'H': [[6, 8], [8, 8]]}, {'C': [[0, 0], [0, 2]], 'B': [[0, 8]]}, {}, {'C': [[0, 0], [0, 2]]}]
+  assert game._get_want_to_use() == [{'H': [(6, 8), (8, 8)]}, {'C': [(0, 0), (0, 2)], 'B': [(0, 8)]}, {}, {'C': [(0, 0), (0, 2)]}]
 
 def test_game_get_can_use():
   game = Game('tests/plan.txt', ['examples/prvni.sh', 'examples/prvni.sh', 'examples/prvni.sh', 'examples/druha.sh'])
   want_to_use = [
-    {'A': [[2,2]], 'B': [[4,4]]},
-    {'B': [[4,4],[6,6]], 'C':[[8,8]], 'D':[[10,10]], 'E': [[0,0]]},
-    {'D':[[12,12]]},
-    {'C':[[8,8]]},
+    {'A': [(2,2)], 'B': [(4,4)]},
+    {'B': [(4,4), (6,6)], 'C':[(8,8)], 'D':[(10,10)], 'E': [(0,0)]},
+    {'D':[(12,12)]},
+    {'C':[(8,8)]},
   ]
   returned = game._get_can_use(want_to_use)
   assert len(returned[0]['A']) == 1
-  assert [2,2] in returned[0]['A']
-  assert ( 'B' in returned[0] and [4,4] in returned[0]['B'] ) or ( 'B' in returned[1] and [4,4] in returned[1]['B'] )
-  assert [6,6] in returned[1]['B']
-  assert ( 'C' in returned[1] and [8,8] in returned[1]['C'] ) or ( 'C' in returned[3] and [8,8] in returned[3]['C'] )
-  assert [10,10] in returned[1]['D']
-  assert [12,12] in returned[2]['D']
+  assert (2,2) in returned[0]['A']
+  assert ( 'B' in returned[0] and (4,4) in returned[0]['B'] ) or ( 'B' in returned[1] and (4,4) in returned[1]['B'] )
+  assert (6,6) in returned[1]['B']
+  assert ( 'C' in returned[1] and (8,8) in returned[1]['C'] ) or ( 'C' in returned[3] and (8,8) in returned[3]['C'] )
+  assert (10,10) in returned[1]['D']
+  assert (12,12) in returned[2]['D']
   strat = Strat('examples/prvni.sh', 1, '0,5,BDE,0')
   plan_list = [
     ',,,,,,,,,,,,D:1',
