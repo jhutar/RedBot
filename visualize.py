@@ -77,20 +77,24 @@ class RedBotVisualizer(Gtk.Window):
     self.current_round = 0
     self.round_label = Gtk.Label("round: " + str(self.current_round))
     self.next_round_button = Gtk.Button(label="Next Round")
-    self.next_round_button.connect("clicked", self.on_button_clicked)
+    self.next_round_button.connect("clicked", self.on_next_button_clicked)
+    self.prev_round_button = Gtk.Button(label="Previous Round")
+    self.prev_round_button.connect("clicked", self.on_prev_button_clicked)
     self.connect("delete-event", Gtk.main_quit)
-    grid.attach(self.next_round_button, 0, 0, 1, 1)
-    grid.attach(self.playfield, 0, 1, 1, 4)
-    grid.attach(self.round_label, 1, 0, 1, 1)
+    grid.attach(self.prev_round_button, 0, 0, 1, 1)
+    grid.attach(self.next_round_button, 1, 0, 1, 1)
+    grid.attach(self.playfield, 0, 1, 2, 4)
+    grid.attach(self.round_label, 2, 0, 1, 1)
     self.add(grid)
     self.files = filter(lambda l: l.startswith("playfield-") and l.endswith(".txt"), os.listdir(directory))
+    self.file_index = 0
     if self.files != []:
-      self.files.sort(reverse=True)
-      g = Game(self.files[-1], [])
+      self.files.sort()
+      g = Game(self.files[self.file_index], [])
       for i in range(g._get_strat_cnt()):
         self.players.append(RedBotPlayer(dwarfs[i]))
-        grid.attach(self.players[i], 1, i + 1, 1, 1)
-      self.next_round()
+        grid.attach(self.players[i], 2, i + 1, 1, 1)
+      self.set_round(g)
       self.show_all()
     else:
       print "no playfield found"
@@ -106,23 +110,27 @@ class RedBotVisualizer(Gtk.Window):
     cr.paint()
     ims.write_to_png("screenshot-%.4d.png" % self.current_round)
 
-  def next_round(self):
-    g = Game(self.files.pop(), [])
-    self.current_round = g._get_round()
+  def set_round(self, game):
+    self.current_round = game._get_round()
     self.round_label.set_text("round: " + str(self.current_round))
-    self.playfield.setup(g._get_plan())
-    for i in range(g._get_strat_cnt()):
-      potions, stones, _, _ = g._get_strat_data(i).split(",")
+    self.playfield.setup(game._get_plan())
+    for i in range(game._get_strat_cnt()):
+      potions, stones, _, _ = game._get_strat_data(i).split(",")
       self.players[i].potion_count.set_text(potions)
       self.players[i].stone_count.set_text(stones)
-    return g
+    return game
 
-  def on_button_clicked(self, widget):
+  def on_next_button_clicked(self, widget):
     self.make_screenshot()
-    if self.files != []:
-      game = self.next_round()
-    else:
-      Gtk.main_quit()
+    if self.file_index + 1 < len(self.files):
+      self.file_index += 1
+      self.set_round(Game(self.files[self.file_index], []))
+
+  def on_prev_button_clicked(self, widget):
+    self.make_screenshot()
+    if self.file_index > 0:
+      self.file_index -= 1
+      self.set_round(Game(self.files[self.file_index], []))
 
 # todo add help
 if __name__ == '__main__':
